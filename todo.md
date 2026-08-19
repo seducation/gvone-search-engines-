@@ -146,3 +146,11 @@
 - [x] Keep gvone as a compact top chat header once conversation mode is active.
 - [x] Keep the message list scrollable and composer fixed at the bottom of the full-height panel.
 - [x] Verify desktop/mobile beyond-image expansion and save a checkpoint.
+
+- [x] Add a top-left hamburger navigation control with saved conversation history.
+- [x] Persist chat sessions locally and allow reopening, starting, and deleting conversations.
+- [x] Add a top-right three-dot menu with standard chatbot actions.
+- [x] Add practical assistant settings for voice, appearance, and conversation behavior.
+- [x] Preserve gvone’s cinematic layout and responsive no-scroll behavior with the new chatbot shell.
+- [x] Verify history persistence, menu interactions, mobile/desktop layouts, and tests.
+- [x] Save a new checkpoint after the chatbot shell is complete.
