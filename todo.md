@@ -40,20 +40,23 @@
 - [x] Add a focused gesture state helper and Vitest coverage.
 - [x] Capture a new mobile screenshot after the latest interaction refinements.
 - [x] Save a fresh checkpoint after the final Jarvis-like refinements are verified.
-- [ ] Select and document the neural voice provider and voice profile.
-- [ ] Add secure server-side neural speech synthesis for gvone responses.
-- [ ] Add the required provider secret and never expose it to the browser.
-- [ ] Add neural audio playback, loading, error, replay, and browser fallback states.
-- [ ] Add tests for the neural voice contract and response handling.
-- [ ] Verify the neural voice experience and responsive controls.
-- [ ] Save a fresh neural-voice checkpoint.
-- [ ] Configure the ElevenLabs API key securely for gvone.
-- [ ] Add server-side ElevenLabs synthesis while preserving browser voice fallback.
-- [ ] Add credential validation and tests for the ElevenLabs voice path.
-- [ ] Verify neural audio playback and save a fresh checkpoint.
+- [x] Select and document the neural voice provider and voice profile. — Deferred by user; browser voice retained.
+- [x] Add secure server-side neural speech synthesis for gvone responses. — Deferred by user.
+- [x] Add the required provider secret and never expose it to the browser. — Deferred by user; no provider secret retained.
+- [x] Add neural audio playback, loading, error, replay, and browser fallback states. — Deferred by user; browser voice and replay retained.
+- [x] Add tests for the neural voice contract and response handling. — Deferred by user.
+- [x] Verify the neural voice experience and responsive controls. — Deferred by user.
+- [x] Save a fresh neural-voice checkpoint. — Deferred by user.
+- [x] Configure the ElevenLabs API key securely for gvone. — Deferred by user after credential validation failed.
+- [x] Add server-side ElevenLabs synthesis while preserving browser voice fallback. — Deferred by user.
+- [x] Add credential validation and tests for the ElevenLabs voice path. — Deferred by user after 401 validation responses.
+- [x] Verify neural audio playback and save a fresh checkpoint. — Deferred by user.
 - [x] Fit the mobile gvone experience to the viewport height without page scrolling.
 - [x] Preserve character visibility, in-circle microphone, greeting, and chat composer on narrow screens.
 - [x] Adapt typography, spacing, and card heights for short and tall mobile screens.
 - [x] Verify mobile no-scroll behavior and recheck desktop layout.
 - [x] Save a fresh mobile-optimized checkpoint.
 - [x] Remove the inactive ElevenLabs credential test from the default suite while the provider is skipped.
+- [x] Make the message writing box taller and easier to use on desktop and mobile.
+- [x] Preserve the no-scroll mobile viewport after enlarging the composer.
+- [x] Verify the updated composer on mobile and desktop, then save a checkpoint.
