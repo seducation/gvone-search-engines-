@@ -260,3 +260,34 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
   .conversation-card, .chat-level-1 .conversation-card, .chat-level-2 .conversation-card, .chat-level-3 .conversation-card, .chat-level-4 .conversation-card { min-height: 270px; }
 }
 @media (prefers-reduced-motion: reduce) { .hero-copy { transition: none; } }
+
+/* Stabilized chat mode: compact at first, then grow in measured steps with a fixed composer. */
+.conversation-card { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; min-height: clamp(250px, 35vh, 390px); height: clamp(250px, 35vh, 390px); }
+.bubble-stack { min-height: 0; height: auto; overflow-y: auto; }
+.chat-level-1 .conversation-card { min-height: clamp(285px, 40vh, 440px); height: clamp(285px, 40vh, 440px); }
+.chat-level-2 .conversation-card { min-height: clamp(320px, 45vh, 490px); height: clamp(320px, 45vh, 490px); }
+.chat-level-3 .conversation-card { min-height: clamp(355px, 50vh, 540px); height: clamp(355px, 50vh, 540px); }
+.chat-level-4 .conversation-card { min-height: clamp(390px, 55vh, 590px); height: clamp(390px, 55vh, 590px); }
+.character-stage { transform-origin: center bottom; }
+.chat-level-1 .character-stage.chat-character-compressed { min-height: 560px; transform: translateY(-3%) scale(.95); }
+.chat-level-2 .character-stage.chat-character-compressed { min-height: 500px; transform: translateY(-7%) scale(.88); }
+.chat-level-3 .character-stage.chat-character-compressed { min-height: 440px; transform: translateY(-11%) scale(.81); }
+.chat-level-4 .character-stage.chat-character-compressed { min-height: 380px; transform: translateY(-15%) scale(.74); }
+@media (max-width: 1023px) {
+  .conversation-card, .chat-level-1 .conversation-card, .chat-level-2 .conversation-card, .chat-level-3 .conversation-card, .chat-level-4 .conversation-card { height: clamp(230px, 32svh, 350px); min-height: clamp(230px, 32svh, 350px); }
+  .chat-level-1 .conversation-card { height: clamp(255px, 36svh, 385px); min-height: clamp(255px, 36svh, 385px); }
+  .chat-level-2 .conversation-card { height: clamp(280px, 40svh, 420px); min-height: clamp(280px, 40svh, 420px); }
+  .chat-level-3 .conversation-card { height: clamp(305px, 44svh, 455px); min-height: clamp(305px, 44svh, 455px); }
+  .chat-level-4 .conversation-card { height: clamp(330px, 48svh, 490px); min-height: clamp(330px, 48svh, 490px); }
+}
+@media (max-width: 560px) {
+  .conversation-card, .chat-level-1 .conversation-card, .chat-level-2 .conversation-card, .chat-level-3 .conversation-card, .chat-level-4 .conversation-card { height: clamp(218px, 29svh, 310px); min-height: clamp(218px, 29svh, 310px); }
+  .chat-level-1 .conversation-card { height: clamp(238px, 32svh, 335px); min-height: clamp(238px, 32svh, 335px); }
+  .chat-level-2 .conversation-card { height: clamp(258px, 35svh, 360px); min-height: clamp(258px, 35svh, 360px); }
+  .chat-level-3 .conversation-card { height: clamp(278px, 38svh, 385px); min-height: clamp(278px, 38svh, 385px); }
+  .chat-level-4 .conversation-card { height: clamp(298px, 41svh, 410px); min-height: clamp(298px, 41svh, 410px); }
+  .chat-level-1 .character-stage.chat-character-compressed { min-height: 42svh; transform: translateY(-2%) scale(.96); }
+  .chat-level-2 .character-stage.chat-character-compressed { min-height: 38svh; transform: translateY(-4%) scale(.92); }
+  .chat-level-3 .character-stage.chat-character-compressed { min-height: 34svh; transform: translateY(-6%) scale(.88); }
+  .chat-level-4 .character-stage.chat-character-compressed { min-height: 30svh; transform: translateY(-8%) scale(.84); }
+}

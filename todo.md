@@ -116,3 +116,8 @@
 - [x] Keep the message list scrollable while anchoring the composer at the bottom of the chat card.
 - [x] Prevent expanded chat content from overlapping or hiding the writing area.
 - [x] Verify initial and expanded desktop/mobile states, then save a checkpoint.
+- [x] Keep the message writing box fixed and reachable at the bottom of the chat card.
+- [x] Reduce the initial chat card size before conversation expansion.
+- [x] Make the chat card grow gradually rather than jumping to a large height.
+- [x] Animate gvone shrinking smoothly toward the compact chat header as messages accumulate.
+- [x] Prevent overlap and verify writing access on desktop and mobile before saving a checkpoint.
