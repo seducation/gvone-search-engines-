@@ -36,6 +36,8 @@ export type FedMemory = {
   id: string;
   content: string;
   enabled: boolean;
+  scope: "global" | "chat";
+  chatId?: string;
   updatedAt: number;
 };
 
@@ -70,9 +72,9 @@ export function buildMemoryContext(conversations: ChatHistoryConversation[], act
   return relevant.slice(0, maxChars);
 }
 
-export function buildFedMemoryContext(items: FedMemory[], maxChars = 2800): string {
+export function buildFedMemoryContext(items: FedMemory[], activeChatId: string, maxChars = 2800): string {
   const references = items
-    .filter((item) => item.enabled && item.content.trim())
+    .filter((item) => item.enabled && item.content.trim() && (item.scope === "global" || item.chatId === activeChatId))
     .slice(0, 4)
     .map((item, index) => `${index + 1}. ${item.content.trim()}`)
     .join("\n");

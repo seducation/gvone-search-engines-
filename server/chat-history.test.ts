@@ -45,10 +45,20 @@ describe("chat history helpers", () => {
 
   it("uses only enabled fed-memory notes and bounds their reference context", () => {
     const fedMemory = buildFedMemoryContext([
-      { id: "enabled", content: "I prefer grounded, concise recommendations.", enabled: true, updatedAt: 2 },
-      { id: "paused", content: "This should not be passed along.", enabled: false, updatedAt: 1 },
-    ]);
+      { id: "enabled", content: "I prefer grounded, concise recommendations.", enabled: true, scope: "global", updatedAt: 2 },
+      { id: "paused", content: "This should not be passed along.", enabled: false, scope: "global", updatedAt: 1 },
+    ], "active");
     expect(fedMemory).toContain("grounded, concise");
     expect(fedMemory).not.toContain("should not be passed");
+  });
+
+  it("includes chat-only notes only for their assigned conversation", () => {
+    const notes = [
+      { id: "global", content: "Always keep the tone thoughtful.", enabled: true, scope: "global" as const, updatedAt: 3 },
+      { id: "private", content: "This plan has a Friday deadline.", enabled: true, scope: "chat" as const, chatId: "alpha", updatedAt: 2 },
+    ];
+    expect(buildFedMemoryContext(notes, "alpha")).toContain("Friday deadline");
+    expect(buildFedMemoryContext(notes, "beta")).not.toContain("Friday deadline");
+    expect(buildFedMemoryContext(notes, "beta")).toContain("thoughtful");
   });
 });

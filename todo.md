@@ -242,3 +242,8 @@
 - [x] Include enabled fed memory together with relevant saved chat context in gvone replies.
 - [x] Let users review, edit, disable, and remove fed memory without cluttering the chat.
 - [x] Add focused tests, verify desktop/mobile behavior, and save a checkpoint.
+
+- [x] Add a per-note memory scope: global across chats or active only for the current chat.
+- [x] Include only global notes and notes assigned to the active conversation in gvone reply context.
+- [x] Add a minimal, clear scope toggle with a readable status for each memory note.
+- [x] Test scoped memory selection, verify desktop/mobile layouts, and save a checkpoint.

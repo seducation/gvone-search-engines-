@@ -58,7 +58,7 @@ const readFedMemories = (): FedMemory[] => {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((item): item is FedMemory => Boolean(item && typeof item === "object" && typeof (item as FedMemory).id === "string" && typeof (item as FedMemory).content === "string"))
-      .map((item) => ({ id: item.id, content: item.content.slice(0, 1800), enabled: item.enabled !== false, updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
+      .map((item) => ({ id: item.id, content: item.content.slice(0, 1800), enabled: item.enabled !== false, scope: (item.scope === "chat" ? "chat" : "global") as FedMemory["scope"], chatId: typeof item.chatId === "string" ? item.chatId : undefined, updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
       .slice(0, MAX_FED_MEMORIES);
   } catch {
     return [];
@@ -97,6 +97,8 @@ export default function Home() {
   const progressPreview = new URLSearchParams(window.location.search).get("preview");
   const isProgressPreview = progressPreview === "progress" || progressPreview === "progress-compact";
   const isProgressPreviewExpanded = progressPreview === "progress";
+  const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
+  const feedMemoryPreviewScope: FedMemory["scope"] = progressPreview === "feed-memory-chat" ? "chat" : "global";
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const preview = new URLSearchParams(window.location.search).get("preview");
     if (!preview) {
@@ -156,8 +158,8 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "menu");
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "settings");
   const [memoryOpen, setMemoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "memory");
-  const [feedMemoryOpen, setFeedMemoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "feed-memory");
-  const [fedMemories, setFedMemories] = useState<FedMemory[]>(readFedMemories);
+  const [feedMemoryOpen, setFeedMemoryOpen] = useState(isFeedMemoryPreview);
+  const [fedMemories, setFedMemories] = useState<FedMemory[]>(() => isFeedMemoryPreview ? [{ id: "preview-memory", content: "Keep this response warm, practical, and focused on the current creative project.", enabled: true, scope: feedMemoryPreviewScope, chatId: feedMemoryPreviewScope === "chat" ? "preview-chat" : undefined, updatedAt: 0 }] : readFedMemories());
   const [feedMemoryDraft, setFeedMemoryDraft] = useState("");
   const [editingFeedMemoryId, setEditingFeedMemoryId] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState("");
@@ -296,11 +298,11 @@ export default function Home() {
       window.localStorage.setItem(SHOW_HINTS_KEY, showHints ? "1" : "0");
       window.localStorage.setItem(AMBIENT_MOTION_KEY, ambientMotion ? "1" : "0");
       window.localStorage.setItem(MEMORY_ENABLED_KEY, memoryEnabled ? "1" : "0");
-      window.localStorage.setItem(FEED_MEMORY_KEY, JSON.stringify(fedMemories));
+      if (!isFeedMemoryPreview) window.localStorage.setItem(FEED_MEMORY_KEY, JSON.stringify(fedMemories));
     } catch {
       // Storage can be unavailable in privacy-restricted browsers.
     }
-  }, [activeSessionId, ambientMotion, autoSpeak, conversations, fedMemories, memoryEnabled, showHints]);
+  }, [activeSessionId, ambientMotion, autoSpeak, conversations, fedMemories, isFeedMemoryPreview, memoryEnabled, showHints]);
 
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
@@ -378,7 +380,7 @@ export default function Home() {
       toast.success("Memory updated");
     } else {
       if (fedMemories.length >= MAX_FED_MEMORIES) { toast.error("Keep up to four memory notes. Remove one to add another."); return; }
-      setFedMemories((current) => [{ id: safeId(), content, enabled: true, updatedAt: Date.now() }, ...current]);
+      setFedMemories((current) => [{ id: safeId(), content, enabled: true, scope: "global", updatedAt: Date.now() }, ...current]);
       toast.success("Memory added to gvone’s context");
     }
     setFeedMemoryDraft("");
@@ -432,7 +434,7 @@ export default function Home() {
     setInput("");
     const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
     const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
-    const fedMemory = buildFedMemoryContext(fedMemories);
+    const fedMemory = buildFedMemoryContext(fedMemories, activeSessionId);
     setAttachedImage(null);
     setVisualDiscoveryMode(false);
     chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: fedMemory || conversationMemory ? { fedMemory: fedMemory || undefined, conversationMemory: conversationMemory || undefined } : undefined });
@@ -613,7 +615,7 @@ export default function Home() {
           <div className="drawer-heading"><div><span className="drawer-kicker">gvone context</span><h2>Feed Memory</h2></div><button className="drawer-close" type="button" onClick={() => { setFeedMemoryOpen(false); setFeedMemoryDraft(""); setEditingFeedMemoryId(null); }} aria-label="Close Feed Memory"><X size={18} /></button></div>
           <div className="feed-memory-intro"><Network size={16} /><div><strong>Keep useful context close</strong><small>Paste notes, preferences, or background. gvone uses enabled notes alongside relevant saved chats.</small></div></div>
           <div className="feed-memory-editor"><label htmlFor="feed-memory-input">{editingFeedMemoryId ? "Edit memory note" : "Feed a memory note"}</label><textarea id="feed-memory-input" value={feedMemoryDraft} onChange={(event) => setFeedMemoryDraft(event.target.value.slice(0, 1800))} placeholder="Example: I’m planning a calm, minimal portfolio for a ceramics studio. Keep recommendations practical and warm." rows={6} maxLength={1800} /><div className="feed-memory-editor-footer"><small>{feedMemoryDraft.length}/1800</small><div>{editingFeedMemoryId && <button className="feed-memory-cancel" type="button" onClick={() => { setFeedMemoryDraft(""); setEditingFeedMemoryId(null); }}>Cancel</button>}<button className="feed-memory-save" type="button" onClick={saveFedMemory}>{editingFeedMemoryId ? "Update memory" : "Add to memory"}</button></div></div></div>
-          <div className="feed-memory-list"><span className="settings-label">Saved notes · {fedMemories.length}/{MAX_FED_MEMORIES}</span>{fedMemories.map((item, index) => <article className={cn(!item.enabled && "is-disabled")} key={item.id}><button className={cn("feed-memory-toggle", item.enabled && "is-on")} type="button" onClick={() => setFedMemories((current) => current.map((entry) => entry.id === item.id ? { ...entry, enabled: !entry.enabled } : entry))} aria-pressed={item.enabled} aria-label={`${item.enabled ? "Disable" : "Enable"} memory ${index + 1}`}><i /></button><div><strong>Memory {index + 1}</strong><p>{item.content}</p><small>{item.enabled ? "Included in new replies" : "Paused"}</small></div><div className="feed-memory-item-actions"><button type="button" onClick={() => editFedMemory(item)}>Edit</button><button type="button" onClick={() => { setFedMemories((current) => current.filter((entry) => entry.id !== item.id)); if (editingFeedMemoryId === item.id) { setFeedMemoryDraft(""); setEditingFeedMemoryId(null); } }} aria-label={`Remove memory ${index + 1}`}><Trash2 size={13} /></button></div></article>)}{!fedMemories.length && <p className="feed-memory-empty">No fed memory yet. Add a note when you want gvone to carry specific context into future replies.</p>}</div>
+          <div className="feed-memory-list"><span className="settings-label">Saved notes · {fedMemories.length}/{MAX_FED_MEMORIES}</span>{fedMemories.map((item, index) => <article className={cn(!item.enabled && "is-disabled")} key={item.id}><button className={cn("feed-memory-toggle", item.enabled && "is-on")} type="button" onClick={() => setFedMemories((current) => current.map((entry) => entry.id === item.id ? { ...entry, enabled: !entry.enabled } : entry))} aria-pressed={item.enabled} aria-label={`${item.enabled ? "Disable" : "Enable"} memory ${index + 1}`}><i /></button><div><strong>Memory {index + 1}</strong><div className="feed-memory-scope" role="group" aria-label={`Memory ${index + 1} scope`}><button className={cn(item.scope === "global" && "is-selected")} type="button" onClick={() => setFedMemories((current) => current.map((entry) => entry.id === item.id ? { ...entry, scope: "global", chatId: undefined, updatedAt: Date.now() } : entry))} aria-pressed={item.scope === "global"}>Global</button><button className={cn(item.scope === "chat" && "is-selected")} type="button" onClick={() => setFedMemories((current) => current.map((entry) => entry.id === item.id ? { ...entry, scope: "chat", chatId: activeSessionId, updatedAt: Date.now() } : entry))} aria-pressed={item.scope === "chat"}>This chat</button></div><p>{item.content}</p><small>{!item.enabled ? "Paused" : item.scope === "global" ? "Active in all chats" : "Active for this chat only"}</small></div><div className="feed-memory-item-actions"><button type="button" onClick={() => editFedMemory(item)}>Edit</button><button type="button" onClick={() => { setFedMemories((current) => current.filter((entry) => entry.id !== item.id)); if (editingFeedMemoryId === item.id) { setFeedMemoryDraft(""); setEditingFeedMemoryId(null); } }} aria-label={`Remove memory ${index + 1}`}><Trash2 size={13} /></button></div></article>)}{!fedMemories.length && <p className="feed-memory-empty">No fed memory yet. Add a note when you want gvone to carry specific context into future replies.</p>}</div>
           <p className="feed-memory-privacy">Stored in this browser. gvone treats fed notes as reference material, not instructions.</p>
         </aside>
       </>}
