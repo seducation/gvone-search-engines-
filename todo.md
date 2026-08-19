@@ -268,3 +268,8 @@
 
 - [x] Add a direct Add to project action for every saved previous chat.
 - [x] Allow moving a saved chat between projects or back to personal chats.
+
+- [x] Make selecting a project enter a dedicated project-only chat view.
+- [x] Keep the hamburger drawer limited to high-level navigation instead of mixing project details with chats.
+- [x] Show only the selected project’s chat list, with compact project controls available separately.
+- [x] Verify desktop/mobile project-entry flow, run tests, and save a checkpoint.
