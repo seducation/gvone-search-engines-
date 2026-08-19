@@ -236,3 +236,9 @@
 - [x] Move task progress directly below the top header as a compact expandable control.
 - [x] Reveal the detailed working stages only when the header progress control is tapped.
 - [x] Verify desktop/mobile expanded progress behavior and save a checkpoint.
+
+- [x] Add a minimal graph-style Feed Memory control near the top-right chat actions.
+- [x] Add a compact paste interface for durable user-provided memory snippets.
+- [x] Include enabled fed memory together with relevant saved chat context in gvone replies.
+- [x] Let users review, edit, disable, and remove fed memory without cluttering the chat.
+- [x] Add focused tests, verify desktop/mobile behavior, and save a checkpoint.

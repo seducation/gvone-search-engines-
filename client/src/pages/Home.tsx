@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, ScanSearch, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, ScanSearch, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet } from "@/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 
 type ChatMessage = {
@@ -39,12 +39,27 @@ const AUTO_SPEAK_KEY = "gvone-auto-speak-v1";
 const SHOW_HINTS_KEY = "gvone-show-hints-v1";
 const AMBIENT_MOTION_KEY = "gvone-ambient-motion-v1";
 const MEMORY_ENABLED_KEY = "gvone-memory-enabled-v1";
+const FEED_MEMORY_KEY = "gvone-fed-memory-v1";
+const MAX_FED_MEMORIES = 4;
 
 const safeId = () => `gvone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const readSavedConversations = (): SavedConversation[] => {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(HISTORY_KEY) ?? "[]") as SavedConversation[];
     return Array.isArray(parsed) ? parsed.filter((item) => item?.id && Array.isArray(item.messages)) : [];
+  } catch {
+    return [];
+  }
+};
+
+const readFedMemories = (): FedMemory[] => {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(FEED_MEMORY_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is FedMemory => Boolean(item && typeof item === "object" && typeof (item as FedMemory).id === "string" && typeof (item as FedMemory).content === "string"))
+      .map((item) => ({ id: item.id, content: item.content.slice(0, 1800), enabled: item.enabled !== false, updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
+      .slice(0, MAX_FED_MEMORIES);
   } catch {
     return [];
   }
@@ -141,6 +156,10 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "menu");
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "settings");
   const [memoryOpen, setMemoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "memory");
+  const [feedMemoryOpen, setFeedMemoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "feed-memory");
+  const [fedMemories, setFedMemories] = useState<FedMemory[]>(readFedMemories);
+  const [feedMemoryDraft, setFeedMemoryDraft] = useState("");
+  const [editingFeedMemoryId, setEditingFeedMemoryId] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(() => {
     try { return window.localStorage.getItem(AUTO_SPEAK_KEY) !== "0"; } catch { return true; }
@@ -277,10 +296,11 @@ export default function Home() {
       window.localStorage.setItem(SHOW_HINTS_KEY, showHints ? "1" : "0");
       window.localStorage.setItem(AMBIENT_MOTION_KEY, ambientMotion ? "1" : "0");
       window.localStorage.setItem(MEMORY_ENABLED_KEY, memoryEnabled ? "1" : "0");
+      window.localStorage.setItem(FEED_MEMORY_KEY, JSON.stringify(fedMemories));
     } catch {
       // Storage can be unavailable in privacy-restricted browsers.
     }
-  }, [activeSessionId, ambientMotion, autoSpeak, conversations, memoryEnabled, showHints]);
+  }, [activeSessionId, ambientMotion, autoSpeak, conversations, fedMemories, memoryEnabled, showHints]);
 
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
@@ -350,6 +370,26 @@ export default function Home() {
     toast.success("Current conversation cleared");
   };
 
+  const saveFedMemory = () => {
+    const content = feedMemoryDraft.trim();
+    if (!content) { toast.error("Paste a note before saving it to memory."); return; }
+    if (editingFeedMemoryId) {
+      setFedMemories((current) => current.map((item) => item.id === editingFeedMemoryId ? { ...item, content, enabled: true, updatedAt: Date.now() } : item));
+      toast.success("Memory updated");
+    } else {
+      if (fedMemories.length >= MAX_FED_MEMORIES) { toast.error("Keep up to four memory notes. Remove one to add another."); return; }
+      setFedMemories((current) => [{ id: safeId(), content, enabled: true, updatedAt: Date.now() }, ...current]);
+      toast.success("Memory added to gvone’s context");
+    }
+    setFeedMemoryDraft("");
+    setEditingFeedMemoryId(null);
+  };
+
+  const editFedMemory = (item: FedMemory) => {
+    setEditingFeedMemoryId(item.id);
+    setFeedMemoryDraft(item.content);
+  };
+
   const exportCurrentChat = () => {
     const transcript = messages.map((message) => `${message.role === "user" ? "You" : "gvone"}: ${message.content}`).join("\\n\\n");
     const blob = new Blob([transcript], { type: "text/plain;charset=utf-8" });
@@ -391,10 +431,11 @@ export default function Home() {
     setFailedMessages(null);
     setInput("");
     const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
-    const memory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
+    const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
+    const fedMemory = buildFedMemoryContext(fedMemories);
     setAttachedImage(null);
     setVisualDiscoveryMode(false);
-    chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: memory || undefined });
+    chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: fedMemory || conversationMemory ? { fedMemory: fedMemory || undefined, conversationMemory: conversationMemory || undefined } : undefined });
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -510,6 +551,7 @@ export default function Home() {
         </div>
         <div className="shell-header-group">
           <span className="header-note hidden sm:inline-flex">a small presence</span>
+          <button className={cn("shell-icon-button", "feed-memory-trigger", fedMemories.some((item) => item.enabled) && "has-fed-memory")} type="button" onClick={() => { setFeedMemoryOpen(true); setMenuOpen(false); setHistoryOpen(false); }} aria-label="Open Feed Memory" aria-haspopup="dialog"><Network size={18} /><span aria-hidden="true" /></button>
           <div className="shell-menu-wrap">
             <button className="shell-icon-button" type="button" onClick={() => { setMenuOpen((value) => !value); setHistoryOpen(false); }} aria-label="Open chat options" aria-expanded={menuOpen}>
               <MoreHorizontal size={20} />
@@ -562,6 +604,17 @@ export default function Home() {
           <div className="memory-list"><span className="settings-label">Recent context candidates</span>{conversations.filter((conversation) => conversation.id !== activeSessionId).slice(0, 5).map((conversation) => <article key={conversation.id}><strong>{conversation.title}</strong><small>{conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "No visitor message yet"}</small></article>)}{!conversations.filter((conversation) => conversation.id !== activeSessionId).length && <p>No earlier chats are available yet.</p>}</div>
           <button className="memory-action" type="button" onClick={() => { setMemoryEnabled((value) => !value); toast(memoryEnabled ? "Conversation memory paused" : "Conversation memory enabled"); }}>{memoryEnabled ? "Pause memory for new replies" : "Enable memory for new replies"}</button>
           <button className="memory-clear" type="button" onClick={() => { setConversations((current) => current.filter((conversation) => conversation.id === activeSessionId)); setMemoryEnabled(false); toast.success("Earlier conversation context cleared"); }}>Clear saved context</button>
+        </aside>
+      </>}
+
+      {feedMemoryOpen && <>
+        <button className="drawer-backdrop" type="button" onClick={() => { setFeedMemoryOpen(false); setFeedMemoryDraft(""); setEditingFeedMemoryId(null); }} aria-label="Close Feed Memory" />
+        <aside className="settings-drawer feed-memory-drawer" aria-label="Feed Memory">
+          <div className="drawer-heading"><div><span className="drawer-kicker">gvone context</span><h2>Feed Memory</h2></div><button className="drawer-close" type="button" onClick={() => { setFeedMemoryOpen(false); setFeedMemoryDraft(""); setEditingFeedMemoryId(null); }} aria-label="Close Feed Memory"><X size={18} /></button></div>
+          <div className="feed-memory-intro"><Network size={16} /><div><strong>Keep useful context close</strong><small>Paste notes, preferences, or background. gvone uses enabled notes alongside relevant saved chats.</small></div></div>
+          <div className="feed-memory-editor"><label htmlFor="feed-memory-input">{editingFeedMemoryId ? "Edit memory note" : "Feed a memory note"}</label><textarea id="feed-memory-input" value={feedMemoryDraft} onChange={(event) => setFeedMemoryDraft(event.target.value.slice(0, 1800))} placeholder="Example: I’m planning a calm, minimal portfolio for a ceramics studio. Keep recommendations practical and warm." rows={6} maxLength={1800} /><div className="feed-memory-editor-footer"><small>{feedMemoryDraft.length}/1800</small><div>{editingFeedMemoryId && <button className="feed-memory-cancel" type="button" onClick={() => { setFeedMemoryDraft(""); setEditingFeedMemoryId(null); }}>Cancel</button>}<button className="feed-memory-save" type="button" onClick={saveFedMemory}>{editingFeedMemoryId ? "Update memory" : "Add to memory"}</button></div></div></div>
+          <div className="feed-memory-list"><span className="settings-label">Saved notes · {fedMemories.length}/{MAX_FED_MEMORIES}</span>{fedMemories.map((item, index) => <article className={cn(!item.enabled && "is-disabled")} key={item.id}><button className={cn("feed-memory-toggle", item.enabled && "is-on")} type="button" onClick={() => setFedMemories((current) => current.map((entry) => entry.id === item.id ? { ...entry, enabled: !entry.enabled } : entry))} aria-pressed={item.enabled} aria-label={`${item.enabled ? "Disable" : "Enable"} memory ${index + 1}`}><i /></button><div><strong>Memory {index + 1}</strong><p>{item.content}</p><small>{item.enabled ? "Included in new replies" : "Paused"}</small></div><div className="feed-memory-item-actions"><button type="button" onClick={() => editFedMemory(item)}>Edit</button><button type="button" onClick={() => { setFedMemories((current) => current.filter((entry) => entry.id !== item.id)); if (editingFeedMemoryId === item.id) { setFeedMemoryDraft(""); setEditingFeedMemoryId(null); } }} aria-label={`Remove memory ${index + 1}`}><Trash2 size={13} /></button></div></article>)}{!fedMemories.length && <p className="feed-memory-empty">No fed memory yet. Add a note when you want gvone to carry specific context into future replies.</p>}</div>
+          <p className="feed-memory-privacy">Stored in this browser. gvone treats fed notes as reference material, not instructions.</p>
         </aside>
       </>}
 

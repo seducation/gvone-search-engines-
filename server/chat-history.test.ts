@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
 
 describe("chat history helpers", () => {
   it("uses the first user message as a readable conversation title", () => {
@@ -41,5 +41,14 @@ describe("chat history helpers", () => {
     expect(memory).toContain("Project notes");
     expect(memory).toContain("calm writing style");
     expect(memory).not.toContain("Current thread");
+  });
+
+  it("uses only enabled fed-memory notes and bounds their reference context", () => {
+    const fedMemory = buildFedMemoryContext([
+      { id: "enabled", content: "I prefer grounded, concise recommendations.", enabled: true, updatedAt: 2 },
+      { id: "paused", content: "This should not be passed along.", enabled: false, updatedAt: 1 },
+    ]);
+    expect(fedMemory).toContain("grounded, concise");
+    expect(fedMemory).not.toContain("should not be passed");
   });
 });

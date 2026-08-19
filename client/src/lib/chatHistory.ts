@@ -32,6 +32,13 @@ export type ChatHistoryVisualSet = {
   error?: string;
 };
 
+export type FedMemory = {
+  id: string;
+  content: string;
+  enabled: boolean;
+  updatedAt: number;
+};
+
 export type ChatHistoryConversation = {
   id: string;
   title: string;
@@ -61,4 +68,13 @@ export function buildMemoryContext(conversations: ChatHistoryConversation[], act
     })
     .join("\n\n");
   return relevant.slice(0, maxChars);
+}
+
+export function buildFedMemoryContext(items: FedMemory[], maxChars = 2800): string {
+  const references = items
+    .filter((item) => item.enabled && item.content.trim())
+    .slice(0, 4)
+    .map((item, index) => `${index + 1}. ${item.content.trim()}`)
+    .join("\n");
+  return references.slice(0, maxChars);
 }
