@@ -76,3 +76,12 @@
 - [x] Use the supplied character reference in the 3D scene through a verifiable texture or identity-preserving visual layer.
 - [x] Add pointer/touch parallax so the 3D camera or model framing responds to movement.
 - [x] Save a new checkpoint after the final 3D gvone changes are verified.
+- [x] Add an optional mobile motion-permission flow for shake interaction.
+- [x] Make gvone drift with device acceleration inside the circular glass enclosure.
+- [x] Add soft boundary collisions, damping, and a visible antigravity reaction.
+- [x] Add desktop fallback and reduced-motion-safe behavior.
+- [x] Verify mobile and desktop states and add tests for the motion helper.
+- [x] Save a fresh antigravity checkpoint.
+- [x] Respect prefers-reduced-motion by softening or disabling shake-driven antigravity motion and cues.
+- [x] Capture a fresh desktop screenshot and verify the no-motion fallback after the antigravity changes.
+- [x] Save a new checkpoint after the final antigravity verification.

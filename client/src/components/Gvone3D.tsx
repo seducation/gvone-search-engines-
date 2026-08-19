@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { GestureMode } from "@/lib/gesture";
 
-type Props = { mode: GestureMode; className?: string };
+type Props = { mode: GestureMode; motion?: { x: number; y: number }; className?: string };
 
 function material(scene: Scene, name: string, color: Color3, roughness = 0.8) {
   const value = new StandardMaterial(name, scene);
@@ -135,15 +135,18 @@ function createGvone(scene: Scene) {
   return root;
 }
 
-export default function Gvone3D({ mode, className }: Props) {
+export default function Gvone3D({ mode, motion = { x: 0, y: 0 }, className }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
+  const motionRef = useRef(motion);
   modeRef.current = mode;
+  motionRef.current = motion;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, alpha: true });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0, 0, 0, 0);
     const camera = new ArcRotateCamera("gvone-camera", -Math.PI / 2, Math.PI / 2.15, 7.2, new Vector3(0, 1.8, 0), scene);
@@ -157,6 +160,10 @@ export default function Gvone3D({ mode, className }: Props) {
     let frame = 0;
     let pointerTargetX = 0;
     let pointerTargetY = 0;
+    let antigravityX = 0;
+    let antigravityY = 0;
+    let velocityX = 0;
+    let velocityY = 0;
     const onPointerMove = (event: PointerEvent) => {
       pointerTargetX = (event.clientX / Math.max(window.innerWidth, 1) - 0.5) * 0.42;
       pointerTargetY = (event.clientY / Math.max(window.innerHeight, 1) - 0.5) * -0.24;
@@ -171,10 +178,26 @@ export default function Gvone3D({ mode, className }: Props) {
         camera.target.x += (pointerTargetX - camera.target.x) * 0.06;
         camera.target.y += (1.8 + pointerTargetY - camera.target.y) * 0.06;
         const current = modeRef.current;
-        const lift = current === "listening" ? Math.sin(time * 6) * 0.07 : Math.sin(time * 1.7) * 0.04;
-        root.position.y = -1.55 + lift;
-        root.rotation.y = Math.sin(time * 0.8) * (current === "touched" ? 0.12 : 0.035);
-        const pulse = current === "speaking" ? 1 + Math.sin(time * 8) * 0.035 : current === "listening" ? 1.035 : 1;
+        const input = reduceMotion ? { x: 0, y: 0 } : motionRef.current;
+        velocityX = (velocityX + input.x * 0.018) * 0.93;
+        velocityY = (velocityY + input.y * 0.018) * 0.93;
+        antigravityX += velocityX;
+        antigravityY += velocityY;
+        const distance = Math.hypot(antigravityX, antigravityY);
+        const boundary = 0.8;
+        if (distance > boundary) {
+          const nx = antigravityX / distance;
+          const ny = antigravityY / distance;
+          antigravityX = nx * boundary;
+          antigravityY = ny * boundary;
+          velocityX *= -0.62;
+          velocityY *= -0.62;
+        }
+        const lift = reduceMotion ? 0 : current === "listening" ? Math.sin(time * 6) * 0.07 : Math.sin(time * 1.7) * 0.04;
+        root.position.x = antigravityX;
+        root.position.y = -1.55 + lift + antigravityY;
+        root.rotation.y = reduceMotion ? 0 : Math.sin(time * 0.8) * (current === "touched" ? 0.12 : 0.035);
+        const pulse = reduceMotion ? 1 : current === "speaking" ? 1 + Math.sin(time * 8) * 0.035 : current === "listening" ? 1.035 : 1;
         root.scaling.setAll(pulse);
       }
       scene.render();

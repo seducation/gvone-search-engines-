@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
+import { motionSupported, normalizeMotion } from "@/lib/motion";
 import Gvone3D from "@/components/Gvone3D";
 
 type ChatMessage = {
@@ -58,6 +59,8 @@ export default function Home() {
   const [voiceAvailability, setVoiceAvailability] = useState<VoiceAvailability>("ready");
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [lastSpokenText, setLastSpokenText] = useState("");
+  const [motionInput, setMotionInput] = useState({ x: 0, y: 0 });
+  const [motionPermission, setMotionPermission] = useState<"idle" | "enabled" | "denied" | "unsupported">("idle");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -147,8 +150,40 @@ export default function Home() {
     sendMessage(input);
   };
 
+  const requestMotionAccess = async () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setMotionPermission("unsupported");
+      return;
+    }
+    if (!motionSupported()) {
+      setMotionPermission("unsupported");
+      return;
+    }
+    if (motionPermission === "enabled") return;
+    try {
+      const motionApi = window.DeviceMotionEvent as unknown as { requestPermission?: () => Promise<"granted" | "denied"> };
+      if (motionApi.requestPermission) {
+        const result = await motionApi.requestPermission();
+        if (result !== "granted") {
+          setMotionPermission("denied");
+          return;
+        }
+      }
+      const handleMotion = (event: DeviceMotionEvent) => {
+        const acceleration = event.accelerationIncludingGravity;
+        const next = normalizeMotion(acceleration?.x ?? 0, -(acceleration?.y ?? 0));
+        setMotionInput(next);
+      };
+      window.addEventListener("devicemotion", handleMotion, { passive: true });
+      setMotionPermission("enabled");
+    } catch {
+      setMotionPermission("denied");
+    }
+  };
+
   const handleCharacterPointerDown = () => {
     unlockAudio();
+    void requestMotionAccess();
     setIsTouched(true);
   };
 
@@ -231,7 +266,7 @@ export default function Home() {
               <div className="frame-glow" />
               <div className="touch-ripple ripple-one" />
               <div className="touch-ripple ripple-two" />
-              <Gvone3D mode={getGestureMode(isTouched, isListening, isSpeaking)} className="character-image" />
+              <Gvone3D mode={getGestureMode(isTouched, isListening, isSpeaking)} motion={motionInput} className="character-image" />
             </div>
             <button className="voice-orbit-button" type="button" onPointerDown={startListening} onPointerUp={stopListening} onPointerLeave={stopListening} onKeyDown={(event) => { if (event.key === " ") startListening(); }} onKeyUp={(event) => { if (event.key === " ") stopListening(); }} aria-label={isListening ? "Release to send your voice message" : "Press and hold to talk to gvone"} disabled={chatMutation.isPending}>
               {isListening ? <Waves size={18} /> : <Mic size={18} />}
@@ -242,6 +277,8 @@ export default function Home() {
             {voiceAvailability === "permission-denied" && <span className="voice-hint warning-hint">allow microphone</span>}
             {isSpeaking && <span className="voice-hint">gvone is speaking</span>}
             {!audioUnlocked && voiceAvailability === "ready" && <span className="voice-hint audio-hint">tap gvone to wake voice</span>}
+            {motionPermission === "enabled" && <span className="motion-hint">shake to float</span>}
+            {motionPermission === "denied" && <span className="motion-hint warning-hint">motion access off</span>}
           </div>
           <div className="character-shadow" />
           <div className="status-chip"><span className="status-pulse" /> online now</div>

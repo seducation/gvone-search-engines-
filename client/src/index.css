@@ -172,3 +172,6 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
   .bubble-stack { gap: 9px; }
   .mini-avatar { width: 23px; height: 23px; }
 }
+
+.motion-hint { position: absolute; right: 4%; bottom: -6%; color: #8b6c5a; font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
+@media (max-width: 560px) { .motion-hint { right: 2%; bottom: -5%; font-size: 7px; } }
