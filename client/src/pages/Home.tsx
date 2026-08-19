@@ -545,6 +545,7 @@ export default function Home() {
               {failedMessages && !chatMutation.isPending && (
                 <div className="retry-row"><span>Something interrupted our moment.</span><button type="button" onClick={() => { setFailedMessages(null); chatMutation.mutate({ messages: failedMessages }); }}>Try again</button></div>
               )}
+              <div ref={messagesEndRef} />
               {latestSourceSet && <section className="web-results latest-web-results" aria-label="Latest web results">
                 <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><span className="web-results-info">latest reply</span></div>
                 {latestSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
@@ -555,7 +556,6 @@ export default function Home() {
                 {!latestSourceSet.error && !latestSourceSet.results.length && <div className="web-results-error">No source pages were found for this query.</div>}
                 {latestSourceSet.results.length >= 5 && <button className="web-results-more" type="button" onClick={() => { setActiveSourceIndex(latestSourceIndex); setSourceDrawerOpen(true); }}>Show all saved results <ChevronDown size={14} /></button>}
               </section>}
-              <div ref={messagesEndRef} />
             </div>
 
             {showHints && <div className="prompt-row">

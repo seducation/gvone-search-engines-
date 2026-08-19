@@ -189,5 +189,12 @@
 - [x] Capture final populated latest-results and blurred-drawer states on desktop and mobile.
 - [x] Save the final verified latest-results refinement checkpoint.
 
+- [x] Restrict automatic scrolling to the newest assistant reply rather than the web-results section.
+- [x] Preserve manual access to the latest website-result cards below the reply.
+- [x] Verify desktop/mobile reply-focused scrolling and save a checkpoint.
+
+- [x] Capture final desktop/mobile reply-focused scroll states with website results still manually reachable.
+- [x] Save the verified reply-focused auto-scroll checkpoint.
+
 - [x] Capture a deterministic populated latest-results state at desktop and mobile sizes.
 - [x] Save the final web-results refinement checkpoint after deterministic verification.
