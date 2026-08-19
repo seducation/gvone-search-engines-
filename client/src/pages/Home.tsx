@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, ScanSearch, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Plus, ScanSearch, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { buildFedMemoryContext, buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 
 type ChatMessage = {
@@ -28,8 +28,27 @@ type SavedConversation = {
   id: string;
   title: string;
   messages: ChatMessage[];
+  projectId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
+  updatedAt: number;
+};
+
+type ProjectFile = {
+  key: string;
+  url: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: number;
+};
+
+type WorkspaceProject = {
+  id: string;
+  name: string;
+  instructions: string;
+  files: ProjectFile[];
+  createdAt: number;
   updatedAt: number;
 };
 
@@ -41,6 +60,8 @@ const AMBIENT_MOTION_KEY = "gvone-ambient-motion-v1";
 const MEMORY_ENABLED_KEY = "gvone-memory-enabled-v1";
 const FEED_MEMORY_KEY = "gvone-fed-memory-v1";
 const MAX_FED_MEMORIES = 4;
+const PROJECTS_KEY = "gvone-projects-v1";
+const ACTIVE_PROJECT_KEY = "gvone-active-project-v1";
 
 const safeId = () => `gvone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const readSavedConversations = (): SavedConversation[] => {
@@ -60,6 +81,19 @@ const readFedMemories = (): FedMemory[] => {
       .filter((item): item is FedMemory => Boolean(item && typeof item === "object" && typeof (item as FedMemory).id === "string" && typeof (item as FedMemory).content === "string"))
       .map((item) => ({ id: item.id, content: item.content.slice(0, 1800), enabled: item.enabled !== false, scope: (item.scope === "chat" ? "chat" : "global") as FedMemory["scope"], chatId: typeof item.chatId === "string" ? item.chatId : undefined, updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
       .slice(0, MAX_FED_MEMORIES);
+  } catch {
+    return [];
+  }
+};
+
+const readProjects = (): WorkspaceProject[] => {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(PROJECTS_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is WorkspaceProject => Boolean(item && typeof item === "object" && typeof (item as WorkspaceProject).id === "string" && typeof (item as WorkspaceProject).name === "string"))
+      .map((item) => ({ id: item.id, name: item.name.slice(0, 70), instructions: typeof item.instructions === "string" ? item.instructions.slice(0, 1800) : "", files: Array.isArray(item.files) ? item.files.filter((file): file is ProjectFile => Boolean(file && typeof file.name === "string" && typeof file.key === "string" && typeof file.url === "string")).slice(0, 12) : [], createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(), updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
+      .slice(0, 12);
   } catch {
     return [];
   }
@@ -99,6 +133,7 @@ export default function Home() {
   const isProgressPreviewExpanded = progressPreview === "progress";
   const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
   const feedMemoryPreviewScope: FedMemory["scope"] = progressPreview === "feed-memory-chat" ? "chat" : "global";
+  const isProjectsPreview = progressPreview === "projects";
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const preview = new URLSearchParams(window.location.search).get("preview");
     if (!preview) {
@@ -154,6 +189,13 @@ export default function Home() {
   const [activeSessionId, setActiveSessionId] = useState(() => {
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
   });
+  const [projects, setProjects] = useState<WorkspaceProject[]>(() => isProjectsPreview ? [{ id: "preview-project", name: "Research Studio", instructions: "Use a clear, research-led tone. Identify assumptions and keep recommendations practical.", files: [{ key: "preview-brief", url: "#", name: "project-brief.pdf", mimeType: "application/pdf", size: 248000, uploadedAt: 0 }, { key: "preview-notes", url: "#", name: "source-notes.md", mimeType: "text/markdown", size: 12000, uploadedAt: 0 }], createdAt: 0, updatedAt: 0 }] : readProjects());
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
+    if (isProjectsPreview) return "preview-project";
+    try { return window.localStorage.getItem(ACTIVE_PROJECT_KEY) || null; } catch { return null; }
+  });
+  const [projectsOpen, setProjectsOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "projects");
+  const [newProjectName, setNewProjectName] = useState("");
   const [historyOpen, setHistoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "history");
   const [menuOpen, setMenuOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "menu");
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "settings");
@@ -197,6 +239,7 @@ export default function Home() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const projectFileInputRef = useRef<HTMLInputElement>(null);
 
   const unlockAudio = () => {
     if (audioUnlocked) return;
@@ -229,6 +272,7 @@ export default function Home() {
 
   const webRetryMutation = trpc.assistant.webResults.useMutation();
   const imageUploadMutation = trpc.assistant.uploadImage.useMutation();
+  const projectFileUploadMutation = trpc.assistant.uploadProjectFile.useMutation();
   const chatMutation = trpc.assistant.chat.useMutation({
     onSuccess: ({ content, results, webError, visualResults, visualQuery, visualError }, variables) => {
       setFailedMessages(null);
@@ -299,16 +343,20 @@ export default function Home() {
       window.localStorage.setItem(AMBIENT_MOTION_KEY, ambientMotion ? "1" : "0");
       window.localStorage.setItem(MEMORY_ENABLED_KEY, memoryEnabled ? "1" : "0");
       if (!isFeedMemoryPreview) window.localStorage.setItem(FEED_MEMORY_KEY, JSON.stringify(fedMemories));
+      if (!isProjectsPreview) {
+        window.localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+        if (activeProjectId) window.localStorage.setItem(ACTIVE_PROJECT_KEY, activeProjectId); else window.localStorage.removeItem(ACTIVE_PROJECT_KEY);
+      }
     } catch {
       // Storage can be unavailable in privacy-restricted browsers.
     }
-  }, [activeSessionId, ambientMotion, autoSpeak, conversations, fedMemories, isFeedMemoryPreview, memoryEnabled, showHints]);
+  }, [activeProjectId, activeSessionId, ambientMotion, autoSpeak, conversations, fedMemories, isFeedMemoryPreview, isProjectsPreview, memoryEnabled, projects, showHints]);
 
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
     const title = getConversationTitle(messages);
-    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, sourceSets: responseSources, visualSets, updatedAt: Date.now() }));
-  }, [activeSessionId, messages, responseSources, visualSets]);
+    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, sourceSets: responseSources, visualSets, updatedAt: Date.now() }));
+  }, [activeProjectId, activeSessionId, messages, responseSources, visualSets]);
 
   const startNewChat = () => {
     const nextId = safeId();
@@ -330,6 +378,7 @@ export default function Home() {
 
   const openConversation = (conversation: SavedConversation) => {
     setActiveSessionId(conversation.id);
+    setActiveProjectId(conversation.projectId ?? null);
     setMessages(conversation.messages);
     setResponseSources(conversation.sourceSets ?? {});
     setVisualSets(conversation.visualSets ?? {});
@@ -341,6 +390,39 @@ export default function Home() {
     setInput("");
     setFailedMessages(null);
     setHistoryOpen(false);
+  };
+
+  const createProject = () => {
+    const name = newProjectName.trim();
+    if (!name) { toast.error("Give the project a name first."); return; }
+    if (projects.length >= 12) { toast.error("Keep up to twelve projects. Remove one to create another."); return; }
+    const now = Date.now();
+    const project: WorkspaceProject = { id: safeId(), name: name.slice(0, 70), instructions: "", files: [], createdAt: now, updatedAt: now };
+    setProjects((current) => [project, ...current]);
+    setActiveProjectId(project.id);
+    setNewProjectName("");
+    setProjectsOpen(false);
+    startNewChat();
+    toast.success(`${project.name} is ready for your work.`);
+  };
+
+  const selectProject = (projectId: string | null) => {
+    setActiveProjectId(projectId);
+    const latest = projectId ? conversations.filter((conversation) => conversation.projectId === projectId).sort((a, b) => b.updatedAt - a.updatedAt)[0] : undefined;
+    if (latest) openConversation(latest); else startNewChat();
+    setProjectsOpen(false);
+  };
+
+  const updateProject = (projectId: string, update: Partial<WorkspaceProject>) => {
+    setProjects((current) => current.map((project) => project.id === projectId ? { ...project, ...update, updatedAt: Date.now() } : project));
+  };
+
+  const deleteProject = (projectId: string) => {
+    const project = projects.find((item) => item.id === projectId);
+    setProjects((current) => current.filter((item) => item.id !== projectId));
+    setConversations((current) => current.map((conversation) => conversation.projectId === projectId ? { ...conversation, projectId: undefined } : conversation));
+    if (activeProjectId === projectId) { setActiveProjectId(null); startNewChat(); }
+    toast.success(`${project?.name ?? "Project"} moved its chats back to Personal.`);
   };
 
   const deleteConversation = (id: string) => {
@@ -424,9 +506,30 @@ export default function Home() {
     }
   };
 
+  const uploadProjectFile = async (file: File) => {
+    if (!activeProjectId) { toast.error("Choose a project before adding files."); return; }
+    if (file.size > 5_000_000) { toast.error("Choose a file smaller than 5 MB."); return; }
+    const supportedTypes = ["application/pdf", "text/plain", "text/markdown", "text/csv", "application/json", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    if (!supportedTypes.includes(file.type) && !file.type.startsWith("image/")) { toast.error("Choose a PDF, text, spreadsheet, document, or image file."); return; }
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+        reader.onerror = () => reject(new Error("Unable to read this file."));
+        reader.readAsDataURL(file);
+      });
+      projectFileUploadMutation.mutate({ projectId: activeProjectId, name: file.name, mimeType: file.type || "application/octet-stream", base64 }, {
+        onSuccess: (uploaded) => { setProjects((current) => current.map((project) => project.id === activeProjectId ? { ...project, files: [...project.files, { ...uploaded, uploadedAt: Date.now() }], updatedAt: Date.now() } : project)); toast.success(`${uploaded.name} added to this project.`); },
+        onError: (error) => toast.error(error.message || "Project file upload failed. Please try again."),
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to read this file.");
+    }
+  };
+
   const sendMessage = (value: string) => {
     const trimmed = value.trim();
-    if ((!trimmed && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending) return;
+    if ((!trimmed && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending || projectFileUploadMutation.isPending) return;
     const content = trimmed || "What can you tell me about this image?";
     const nextMessages = [...messages, { role: "user" as const, content, image: attachedImage ?? undefined }];
     setMessages(nextMessages);
@@ -435,9 +538,11 @@ export default function Home() {
     const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
     const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
     const fedMemory = buildFedMemoryContext(fedMemories, activeSessionId);
+    const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
+    const projectContext = activeProject ? buildProjectContext(conversations, activeProject.id, activeSessionId) : "";
     setAttachedImage(null);
     setVisualDiscoveryMode(false);
-    chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: fedMemory || conversationMemory ? { fedMemory: fedMemory || undefined, conversationMemory: conversationMemory || undefined } : undefined });
+    chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: fedMemory || conversationMemory || activeProject ? { fedMemory: fedMemory || undefined, conversationMemory: conversationMemory || undefined, projectInstructions: activeProject?.instructions || undefined, projectContext: projectContext || undefined, projectFiles: activeProject?.files.map((file) => ({ name: file.name, mimeType: file.mimeType })) } : undefined });
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -537,6 +642,7 @@ export default function Home() {
   const latestSourceIndex = messages.at(-1)?.role === "assistant" ? messages.length - 1 : null;
   const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
   const latestVisualSet = latestSourceIndex === null ? null : visualSets[latestSourceIndex] ?? null;
+  const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
 
   return (
     <main className={cn("assistant-shell min-h-screen overflow-hidden bg-[#f4f0ea] text-[#1f2430]", !ambientMotion && "ambient-muted")}>
@@ -553,6 +659,7 @@ export default function Home() {
         </div>
         <div className="shell-header-group">
           <span className="header-note hidden sm:inline-flex">a small presence</span>
+          <button className={cn("shell-icon-button", "projects-trigger", activeProject && "has-active-project")} type="button" onClick={() => { setProjectsOpen(true); setMenuOpen(false); setHistoryOpen(false); }} aria-label="Open Projects" aria-haspopup="dialog"><FolderKanban size={18} /><span aria-hidden="true" /></button>
           <button className={cn("shell-icon-button", "feed-memory-trigger", fedMemories.some((item) => item.enabled) && "has-fed-memory")} type="button" onClick={() => { setFeedMemoryOpen(true); setMenuOpen(false); setHistoryOpen(false); }} aria-label="Open Feed Memory" aria-haspopup="dialog"><Network size={18} /><span aria-hidden="true" /></button>
           <div className="shell-menu-wrap">
             <button className="shell-icon-button" type="button" onClick={() => { setMenuOpen((value) => !value); setHistoryOpen(false); }} aria-label="Open chat options" aria-expanded={menuOpen}>
@@ -584,6 +691,16 @@ export default function Home() {
             </div>)}
             {conversations.length === 0 && <div className="history-empty"><MessageSquarePlus size={21} /><p>Your conversations will appear here.</p><small>Start a chat with gvone to save it.</small></div>}
           </div>
+        </aside>
+      </>}
+
+      {projectsOpen && <>
+        <button className="drawer-backdrop" type="button" onClick={() => setProjectsOpen(false)} aria-label="Close Projects" />
+        <aside className="projects-drawer" aria-label="Projects">
+          <div className="drawer-heading"><div><span className="drawer-kicker">gvone workspaces</span><h2>Projects</h2></div><button className="drawer-close" type="button" onClick={() => setProjectsOpen(false)} aria-label="Close Projects"><X size={18} /></button></div>
+          <div className="project-create"><input value={newProjectName} onChange={(event) => setNewProjectName(event.target.value.slice(0, 70))} onKeyDown={(event) => { if (event.key === "Enter") createProject(); }} placeholder="New project name" aria-label="New project name" /><button type="button" onClick={createProject} aria-label="Create project"><Plus size={16} /> Create</button></div>
+          <div className="project-switcher"><button className={cn("project-switch-item", !activeProjectId && "is-active")} type="button" onClick={() => selectProject(null)}><span className="project-switch-icon"><MessageSquarePlus size={14} /></span><span><strong>Personal chats</strong><small>{conversations.filter((conversation) => !conversation.projectId).length} ungrouped chats</small></span></button>{projects.map((project) => <div className={cn("project-switch-wrap", project.id === activeProjectId && "is-active")} key={project.id}><button className="project-switch-item" type="button" onClick={() => selectProject(project.id)}><span className="project-switch-icon"><FolderKanban size={14} /></span><span><strong>{project.name}</strong><small>{conversations.filter((conversation) => conversation.projectId === project.id).length} chats · {project.files.length} files</small></span></button><button className="project-delete" type="button" onClick={() => deleteProject(project.id)} aria-label={`Delete ${project.name} project`}><Trash2 size={13} /></button></div>)}</div>
+          {activeProject ? <section className="project-workspace"><div className="project-workspace-heading"><div><span>ACTIVE WORKSPACE</span><h3>{activeProject.name}</h3></div><button type="button" onClick={startNewChat}><MessageSquarePlus size={14} /> New chat</button></div><label className="project-instructions"><span>Project instructions</span><textarea value={activeProject.instructions} onChange={(event) => updateProject(activeProject.id, { instructions: event.target.value.slice(0, 1800) })} placeholder="Set tone, goals, constraints, or working preferences for every chat in this project." rows={4} /><small>{activeProject.instructions.length}/1800 · applied to new replies</small></label><div className="project-files"><div className="project-files-heading"><span>Files</span><input ref={projectFileInputRef} type="file" className="project-file-input" accept=".pdf,.txt,.md,.csv,.json,.docx,.xlsx,image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProjectFile(file); event.currentTarget.value = ""; }} /><button type="button" onClick={() => projectFileInputRef.current?.click()} disabled={projectFileUploadMutation.isPending}>{projectFileUploadMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <FilePlus2 size={14} />} Add file</button></div><div className="project-file-list">{activeProject.files.map((file) => <article key={file.key}><a href={file.url} target="_blank" rel="noreferrer"><FileText size={15} /><span><strong>{file.name}</strong><small>{Math.max(1, Math.round(file.size / 1024))} KB · {file.mimeType.split("/").at(-1)}</small></span></a><button type="button" onClick={() => updateProject(activeProject.id, { files: activeProject.files.filter((item) => item.key !== file.key) })} aria-label={`Remove ${file.name}`}><Trash2 size={13} /></button></article>)}{!activeProject.files.length && <p>Keep briefs, notes, sources, and assets together here.</p>}</div></div><div className="project-related-chats"><span>Related chats</span>{conversations.filter((conversation) => conversation.projectId === activeProject.id).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5).map((conversation) => <button type="button" onClick={() => openConversation(conversation)} key={conversation.id}><strong>{conversation.title}</strong><small>{new Date(conversation.updatedAt).toLocaleDateString()}</small></button>)}{!conversations.some((conversation) => conversation.projectId === activeProject.id) && <p>Your project chats will gather here.</p>}</div></section> : <div className="projects-empty"><FolderKanban size={22} /><p>Organize longer work in a dedicated project.</p><small>Projects keep related chats, files, shared instructions, and context together.</small></div>}
         </aside>
       </>}
 

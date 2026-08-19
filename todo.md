@@ -247,3 +247,11 @@
 - [x] Include only global notes and notes assigned to the active conversation in gvone reply context.
 - [x] Add a minimal, clear scope toggle with a readable status for each memory note.
 - [x] Test scoped memory selection, verify desktop/mobile layouts, and save a checkpoint.
+
+- [x] Add Projects workspaces for dedicated long-term topics and goals.
+- [x] Keep conversations grouped within their selected project and support project switching.
+- [x] Add project-specific instructions and include them in gvone reply context.
+- [x] Add a project file library with upload, listing, and removal controls.
+- [x] Maintain bounded shared project context across chats in the same workspace.
+- [x] Build minimal desktop/mobile project navigation and workspace management UI.
+- [x] Add focused tests, verify workflows, and save a checkpoint.

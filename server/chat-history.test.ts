@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFedMemoryContext, buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
 
 describe("chat history helpers", () => {
   it("uses the first user message as a readable conversation title", () => {
@@ -60,5 +60,17 @@ describe("chat history helpers", () => {
     expect(buildFedMemoryContext(notes, "alpha")).toContain("Friday deadline");
     expect(buildFedMemoryContext(notes, "beta")).not.toContain("Friday deadline");
     expect(buildFedMemoryContext(notes, "beta")).toContain("thoughtful");
+  });
+
+  it("builds bounded shared context from other chats in the active project only", () => {
+    const conversations: ChatHistoryConversation[] = [
+      { id: "active", title: "Current", projectId: "project-a", messages: [{ role: "user", content: "Current details" }], updatedAt: 4 },
+      { id: "related", title: "Research direction", projectId: "project-a", messages: [{ role: "user", content: "Use primary sources for the research." }], updatedAt: 3 },
+      { id: "other", title: "Different workspace", projectId: "project-b", messages: [{ role: "user", content: "This must not appear." }], updatedAt: 2 },
+    ];
+    const context = buildProjectContext(conversations, "project-a", "active");
+    expect(context).toContain("primary sources");
+    expect(context).not.toContain("Current details");
+    expect(context).not.toContain("must not appear");
   });
 });

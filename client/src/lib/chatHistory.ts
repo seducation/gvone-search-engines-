@@ -45,6 +45,7 @@ export type ChatHistoryConversation = {
   id: string;
   title: string;
   messages: ChatHistoryMessage[];
+  projectId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
   updatedAt: number;
@@ -79,4 +80,17 @@ export function buildFedMemoryContext(items: FedMemory[], activeChatId: string, 
     .map((item, index) => `${index + 1}. ${item.content.trim()}`)
     .join("\n");
   return references.slice(0, maxChars);
+}
+
+export function buildProjectContext(conversations: ChatHistoryConversation[], projectId: string, activeId: string, limit = 3, maxChars = 3400): string {
+  const sharedContext = conversations
+    .filter((conversation) => conversation.projectId === projectId && conversation.id !== activeId && conversation.messages.some((message) => message.role === "user"))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, limit)
+    .map((conversation) => {
+      const excerpt = conversation.messages.slice(-4).map((message) => `${message.role === "user" ? "Visitor" : "gvone"}: ${message.content.trim()}`).join("\n");
+      return `Project chat — ${conversation.title}:\n${excerpt}`;
+    })
+    .join("\n\n");
+  return sharedContext.slice(0, maxChars);
 }

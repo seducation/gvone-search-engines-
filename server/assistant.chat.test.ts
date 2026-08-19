@@ -74,12 +74,28 @@ describe("assistant.chat", () => {
     expect(invokeLLMMock).toHaveBeenCalledWith(expect.objectContaining({ messages: expect.arrayContaining([expect.objectContaining({ role: "system", content: expect.stringContaining("Feed Memory") }), expect.objectContaining({ role: "system", content: expect.stringContaining("Relevant prior conversation memory") })]) }));
   });
 
+  it("passes project instructions, related chat context, and file references with a workspace reply", async () => {
+    invokeLLMMock.mockResolvedValueOnce({ choices: [{ message: { content: "I’ll keep the project brief in focus." } }] });
+    searchWebMock.mockResolvedValueOnce([]);
+    const ctx = { user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } satisfies TrpcContext;
+    await appRouter.createCaller(ctx).assistant.chat({ messages: [{ role: "user", content: "What should we do next?" }], memory: { projectInstructions: "Use a calm, research-led tone.", projectContext: "Project chat — Research:\nVisitor: Prioritize primary sources.", projectFiles: [{ name: "brief.pdf", mimeType: "application/pdf" }] } });
+    expect(invokeLLMMock).toHaveBeenCalledWith(expect.objectContaining({ messages: expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining("Project workspace instructions") }), expect.objectContaining({ content: expect.stringContaining("Shared context from other chats") }), expect.objectContaining({ content: expect.stringContaining("brief.pdf") })]) }));
+  });
+
   it("stores a supported visual attachment before vision analysis", async () => {
     storagePutMock.mockResolvedValueOnce({ key: "gvone-visuals/image_123.jpg", url: "/manus-storage/gvone-visuals/image_123.jpg" });
     const ctx = { user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } satisfies TrpcContext;
     const base64 = Buffer.from("small supported image payload").toString("base64");
     await expect(appRouter.createCaller(ctx).assistant.uploadImage({ name: "reference.jpg", mimeType: "image/jpeg", base64 })).resolves.toEqual({ key: "gvone-visuals/image_123.jpg", url: "/manus-storage/gvone-visuals/image_123.jpg", name: "reference.jpg" });
     expect(storagePutMock).toHaveBeenCalledWith(expect.stringContaining("gvone-visuals/"), expect.any(Buffer), "image/jpeg");
+  });
+
+  it("stores supported project files in the project file library", async () => {
+    storagePutMock.mockResolvedValueOnce({ key: "gvone-projects/project-a/brief_123.pdf", url: "/manus-storage/gvone-projects/project-a/brief_123.pdf" });
+    const ctx = { user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } satisfies TrpcContext;
+    const base64 = Buffer.from("small pdf-like project file payload").toString("base64");
+    await expect(appRouter.createCaller(ctx).assistant.uploadProjectFile({ projectId: "project-a", name: "brief.pdf", mimeType: "application/pdf", base64 })).resolves.toMatchObject({ name: "brief.pdf", mimeType: "application/pdf", size: expect.any(Number) });
+    expect(storagePutMock).toHaveBeenCalledWith(expect.stringContaining("gvone-projects/project-a/"), expect.any(Buffer), "application/pdf");
   });
 
   it("rejects blank messages before calling the model", async () => {
