@@ -216,3 +216,10 @@
 - [x] Add an opt-in prompt-only image discovery mode for visual references without an upload.
 - [x] Verify the image attach, identification, discovery, and failure states through focused test coverage and responsive previews.
 - [x] Save the fully verified visual assistant upgrade checkpoint.
+
+- [x] Add a Manus-inspired interactive workspace layout while retaining gvone’s distinct visual identity.
+- [x] Send relevant saved conversation context to gvone so replies can refer back to earlier discussion.
+- [x] Add visible capability controls for chat, web research, image identification, and image discovery.
+- [x] Add memory controls that let users view and clear conversation context.
+- [x] Verify persistent contextual recall, workspace interactions, mobile responsiveness, and tests.
+- [x] Save a checkpoint after the Manus-inspired workspace is complete.

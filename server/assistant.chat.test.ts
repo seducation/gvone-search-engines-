@@ -66,6 +66,14 @@ describe("assistant.chat", () => {
     expect(result).toMatchObject({ content: "Here are some visual directions to explore.", visualQuery: "Find visual references for soft studio lighting.", visualResults: [{ title: "Studio lighting reference" }], visualError: null });
   });
 
+  it("passes saved conversation memory as reference-only context", async () => {
+    invokeLLMMock.mockResolvedValueOnce({ choices: [{ message: { content: "I remember that preference." } }] });
+    searchWebMock.mockResolvedValueOnce([]);
+    const ctx = { user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } satisfies TrpcContext;
+    await appRouter.createCaller(ctx).assistant.chat({ messages: [{ role: "user", content: "Can you keep it concise?" }], memory: "Previous conversation — Notes:\nVisitor: I prefer concise research." });
+    expect(invokeLLMMock).toHaveBeenCalledWith(expect.objectContaining({ messages: expect.arrayContaining([expect.objectContaining({ role: "system", content: expect.stringContaining("Relevant prior conversation memory") })]) }));
+  });
+
   it("stores a supported visual attachment before vision analysis", async () => {
     storagePutMock.mockResolvedValueOnce({ key: "gvone-visuals/image_123.jpg", url: "/manus-storage/gvone-visuals/image_123.jpg" });
     const ctx = { user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } satisfies TrpcContext;

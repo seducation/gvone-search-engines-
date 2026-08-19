@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
+import { buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
 
 describe("chat history helpers", () => {
   it("uses the first user message as a readable conversation title", () => {
@@ -29,5 +29,17 @@ describe("chat history helpers", () => {
       updatedAt: 3,
     };
     expect(upsertConversation([], next)[0].sourceSets?.[0].results).toHaveLength(1);
+  });
+
+  it("builds bounded background memory without including the active thread", () => {
+    const conversations: ChatHistoryConversation[] = [
+      { id: "active", title: "Current", messages: [{ role: "user", content: "Current thread" }], updatedAt: 4 },
+      { id: "recent", title: "Project notes", messages: [{ role: "user", content: "I prefer concise research." }, { role: "assistant", content: "I will keep it concise." }], updatedAt: 3 },
+      { id: "older", title: "Ideas", messages: [{ role: "user", content: "Remember my calm writing style." }], updatedAt: 2 },
+    ];
+    const memory = buildMemoryContext(conversations, "active", 2);
+    expect(memory).toContain("Project notes");
+    expect(memory).toContain("calm writing style");
+    expect(memory).not.toContain("Current thread");
   });
 });

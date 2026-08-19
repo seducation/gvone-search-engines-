@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet } from "@/lib/chatHistory";
+import { buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet } from "@/lib/chatHistory";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -37,6 +37,7 @@ const ACTIVE_SESSION_KEY = "gvone-active-session-v1";
 const AUTO_SPEAK_KEY = "gvone-auto-speak-v1";
 const SHOW_HINTS_KEY = "gvone-show-hints-v1";
 const AMBIENT_MOTION_KEY = "gvone-ambient-motion-v1";
+const MEMORY_ENABLED_KEY = "gvone-memory-enabled-v1";
 
 const safeId = () => `gvone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const readSavedConversations = (): SavedConversation[] => {
@@ -128,6 +129,7 @@ export default function Home() {
   const [activeVisualIndex, setActiveVisualIndex] = useState<number | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
   const [visualDiscoveryMode, setVisualDiscoveryMode] = useState(false);
+  const [activeCapability, setActiveCapability] = useState<"chat" | "research" | "identify" | "discover">("chat");
   const [conversations, setConversations] = useState<SavedConversation[]>(readSavedConversations);
   const [activeSessionId, setActiveSessionId] = useState(() => {
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
@@ -135,6 +137,7 @@ export default function Home() {
   const [historyOpen, setHistoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "history");
   const [menuOpen, setMenuOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "menu");
   const [settingsOpen, setSettingsOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "settings");
+  const [memoryOpen, setMemoryOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "memory");
   const [historySearch, setHistorySearch] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(() => {
     try { return window.localStorage.getItem(AUTO_SPEAK_KEY) !== "0"; } catch { return true; }
@@ -144,6 +147,9 @@ export default function Home() {
   });
   const [ambientMotion, setAmbientMotion] = useState(() => {
     try { return window.localStorage.getItem(AMBIENT_MOTION_KEY) !== "0"; } catch { return true; }
+  });
+  const [memoryEnabled, setMemoryEnabled] = useState(() => {
+    try { return window.localStorage.getItem(MEMORY_ENABLED_KEY) !== "0"; } catch { return true; }
   });
   const [hasEntered, setHasEntered] = useState(() => {
     try {
@@ -251,10 +257,11 @@ export default function Home() {
       window.localStorage.setItem(AUTO_SPEAK_KEY, autoSpeak ? "1" : "0");
       window.localStorage.setItem(SHOW_HINTS_KEY, showHints ? "1" : "0");
       window.localStorage.setItem(AMBIENT_MOTION_KEY, ambientMotion ? "1" : "0");
+      window.localStorage.setItem(MEMORY_ENABLED_KEY, memoryEnabled ? "1" : "0");
     } catch {
       // Storage can be unavailable in privacy-restricted browsers.
     }
-  }, [activeSessionId, ambientMotion, autoSpeak, conversations, showHints]);
+  }, [activeSessionId, ambientMotion, autoSpeak, conversations, memoryEnabled, showHints]);
 
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
@@ -356,6 +363,19 @@ export default function Home() {
     }
   };
 
+  const chooseCapability = (capability: "chat" | "research" | "identify" | "discover") => {
+    setActiveCapability(capability);
+    if (capability === "identify") {
+      imageInputRef.current?.click();
+      return;
+    }
+    if (capability === "discover") {
+      setVisualDiscoveryMode(true);
+      toast("Visual discovery is ready for your next prompt.");
+    }
+    window.setTimeout(() => inputRef.current?.focus(), 30);
+  };
+
   const sendMessage = (value: string) => {
     const trimmed = value.trim();
     if ((!trimmed && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending) return;
@@ -365,9 +385,10 @@ export default function Home() {
     setFailedMessages(null);
     setInput("");
     const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
+    const memory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
     setAttachedImage(null);
     setVisualDiscoveryMode(false);
-    chatMutation.mutate({ messages: nextMessages, discoverVisuals });
+    chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: memory || undefined });
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -489,6 +510,7 @@ export default function Home() {
             </button>
             {menuOpen && <div className="shell-menu" role="menu">
               <button type="button" onClick={startNewChat}><MessageSquarePlus size={15} /> New chat</button>
+              <button type="button" onClick={() => { setMemoryOpen(true); setMenuOpen(false); }}><Sparkles size={15} /> Conversation memory</button>
               <button type="button" onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}><Settings size={15} /> Settings</button>
               <button type="button" onClick={exportCurrentChat}><Download size={15} /> Export chat</button>
               <button type="button" onClick={clearCurrentChat}><Trash2 size={15} /> Clear chat</button>
@@ -519,7 +541,19 @@ export default function Home() {
           <div className="drawer-heading"><div><span className="drawer-kicker">personalize gvone</span><h2>Settings</h2></div><button className="drawer-close" type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings"><X size={18} /></button></div>
           <div className="settings-section"><span className="settings-label">Voice & response</span><button className="setting-row" type="button" onClick={() => setAutoSpeak((value) => !value)}><span><span className="setting-icon">{autoSpeak ? <Volume2 size={16} /> : <VolumeX size={16} />}</span><strong>Speak responses aloud</strong><small>Use browser voice after gvone replies</small></span><span className={cn("toggle", autoSpeak && "is-on")}><i /></span></button></div>
           <div className="settings-section"><span className="settings-label">Interface</span><button className="setting-row" type="button" onClick={() => setShowHints((value) => !value)}><span><span className="setting-icon"><Sparkles size={16} /></span><strong>Show conversation hints</strong><small>Keep starter prompts near the composer</small></span><span className={cn("toggle", showHints && "is-on")}><i /></span></button><button className="setting-row" type="button" onClick={() => setAmbientMotion((value) => !value)}><span><span className="setting-icon"><Sparkles size={16} /></span><strong>Ambient motion</strong><small>Control the background drift and idle atmosphere</small></span><span className={cn("toggle", ambientMotion && "is-on")}><i /></span></button></div>
-          <div className="settings-note">Your preferences and saved conversations stay in this browser. Nothing here requires an account.</div>
+          <div className="settings-section"><span className="settings-label">Conversation memory</span><button className="setting-row" type="button" onClick={() => setMemoryEnabled((value) => !value)}><span><span className="setting-icon"><Sparkles size={16} /></span><strong>Use saved chat context</strong><small>Let gvone draw on relevant earlier conversations</small></span><span className={cn("toggle", memoryEnabled && "is-on")}><i /></span></button></div>
+          <div className="settings-note">Conversation memory stays in this browser. You can pause it at any time without deleting saved chats.</div>
+        </aside>
+      </>}
+
+      {memoryOpen && <>
+        <button className="drawer-backdrop" type="button" onClick={() => setMemoryOpen(false)} aria-label="Close conversation memory" />
+        <aside className="settings-drawer memory-drawer" aria-label="Conversation memory">
+          <div className="drawer-heading"><div><span className="drawer-kicker">gvone context</span><h2>Conversation memory</h2></div><button className="drawer-close" type="button" onClick={() => setMemoryOpen(false)} aria-label="Close conversation memory"><X size={18} /></button></div>
+          <div className="memory-status"><span className={cn("status-pulse", !memoryEnabled && "is-paused")} /><div><strong>{memoryEnabled ? "Context is active" : "Context is paused"}</strong><small>{memoryEnabled ? "gvone may use relevant saved conversations when answering." : "Saved chats remain available, but are not sent as context."}</small></div></div>
+          <div className="memory-list"><span className="settings-label">Recent context candidates</span>{conversations.filter((conversation) => conversation.id !== activeSessionId).slice(0, 5).map((conversation) => <article key={conversation.id}><strong>{conversation.title}</strong><small>{conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "No visitor message yet"}</small></article>)}{!conversations.filter((conversation) => conversation.id !== activeSessionId).length && <p>No earlier chats are available yet.</p>}</div>
+          <button className="memory-action" type="button" onClick={() => { setMemoryEnabled((value) => !value); toast(memoryEnabled ? "Conversation memory paused" : "Conversation memory enabled"); }}>{memoryEnabled ? "Pause memory for new replies" : "Enable memory for new replies"}</button>
+          <button className="memory-clear" type="button" onClick={() => { setConversations((current) => current.filter((conversation) => conversation.id === activeSessionId)); setMemoryEnabled(false); toast.success("Earlier conversation context cleared"); }}>Clear saved context</button>
         </aside>
       </>}
 
@@ -593,6 +627,16 @@ export default function Home() {
             <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
             <h1>Let’s make<br /><em>something</em> of this moment.</h1>
             <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it. Hold the circle to speak.</p>
+          </div>
+
+          <div className="capability-workbench" aria-label="gvone capabilities">
+            <div className="workspace-status"><span className="workspace-kicker">workspace</span><strong>{activeCapability === "chat" ? "Conversation" : activeCapability === "research" ? "Web research" : activeCapability === "identify" ? "Image identification" : "Visual discovery"}</strong><small><i className={cn("memory-indicator", memoryEnabled && "is-active")} />{memoryEnabled ? `${Math.min(conversations.filter((conversation) => conversation.id !== activeSessionId).length, 4)} prior chats available as context` : "memory paused"}</small></div>
+            <div className="capability-actions" role="toolbar" aria-label="Choose an assistant capability">
+              <button type="button" className={cn(activeCapability === "chat" && "is-active")} onClick={() => chooseCapability("chat")}><Sparkles size={14} /><span>Chat</span></button>
+              <button type="button" className={cn(activeCapability === "research" && "is-active")} onClick={() => chooseCapability("research")}><Globe2 size={14} /><span>Research</span></button>
+              <button type="button" className={cn(activeCapability === "identify" && "is-active")} onClick={() => chooseCapability("identify")}><ImagePlus size={14} /><span>Identify</span></button>
+              <button type="button" className={cn(activeCapability === "discover" && "is-active")} onClick={() => chooseCapability("discover")}><ScanSearch size={14} /><span>Discover</span></button>
+            </div>
           </div>
 
           <div className="conversation-card">

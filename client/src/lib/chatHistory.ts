@@ -49,3 +49,16 @@ export function getConversationTitle(messages: ChatHistoryMessage[]): string {
 export function upsertConversation(conversations: ChatHistoryConversation[], next: ChatHistoryConversation, limit = 30): ChatHistoryConversation[] {
   return [next, ...conversations.filter((conversation) => conversation.id !== next.id)].slice(0, limit);
 }
+
+export function buildMemoryContext(conversations: ChatHistoryConversation[], activeId: string, limit = 4, maxChars = 5200): string {
+  const relevant = conversations
+    .filter((conversation) => conversation.id !== activeId && conversation.messages.some((message) => message.role === "user"))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, limit)
+    .map((conversation) => {
+      const excerpt = conversation.messages.slice(-4).map((message) => `${message.role === "user" ? "Visitor" : "gvone"}: ${message.content.trim()}`).join("\n");
+      return `Previous conversation — ${conversation.title}:\n${excerpt}`;
+    })
+    .join("\n\n");
+  return relevant.slice(0, maxChars);
+}
