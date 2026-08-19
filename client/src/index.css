@@ -151,3 +151,24 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
   .intro-copy { display: none; }
   .bubble-stack { max-height: 72px; }
 }
+
+/* Dimensional 3D character and readable conversation hierarchy. */
+.gvone-3d-canvas { width: 100%; height: 100%; display: block; touch-action: none; filter: drop-shadow(0 22px 26px rgba(22, 44, 78, .2)); }
+.character-frame { overflow: visible; }
+.character-image { object-fit: contain; }
+.mini-avatar { display: grid; place-items: center; background: radial-gradient(circle at 35% 28%, #8ed6ff 0 16%, #1977ca 42%, #123b75 100%); box-shadow: 0 5px 14px rgba(22, 63, 113, .22); }
+.mini-avatar-dot { width: 8px; height: 8px; border-radius: 50%; background: #eaf8ff; box-shadow: 4px 0 0 -1px #17335e; }
+.assistant-bubble { background: rgba(255, 255, 255, .93); border: 1px solid rgba(36, 46, 64, .14); box-shadow: 0 12px 26px rgba(55, 53, 48, .09); color: #202734; font-size: 14px; line-height: 1.55; font-weight: 500; }
+.assistant-bubble p, .assistant-bubble > div { color: #202734; }
+.user-row { justify-content: flex-end; padding-left: 16%; }
+.user-bubble { background: #273041; border: 1px solid #273041; color: #fff; box-shadow: 0 8px 18px rgba(26, 31, 45, .14); }
+.user-bubble p { color: #fff; }
+.message-row { gap: 10px; align-items: flex-end; }
+.bubble-stack { gap: 13px; }
+.replay-button { color: #a85e38; font-weight: 700; }
+@media (max-width: 560px) {
+  .assistant-bubble { font-size: 11px; line-height: 1.42; }
+  .user-row { padding-left: 8%; }
+  .bubble-stack { gap: 9px; }
+  .mini-avatar { width: 23px; height: 23px; }
+}

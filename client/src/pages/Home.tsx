@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
+import Gvone3D from "@/components/Gvone3D";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -230,7 +231,7 @@ export default function Home() {
               <div className="frame-glow" />
               <div className="touch-ripple ripple-one" />
               <div className="touch-ripple ripple-two" />
-              <img src={CHARACTER_IMAGE} alt="gvone, your character assistant" className="character-image" />
+              <Gvone3D mode={getGestureMode(isTouched, isListening, isSpeaking)} className="character-image" />
             </div>
             <button className="voice-orbit-button" type="button" onPointerDown={startListening} onPointerUp={stopListening} onPointerLeave={stopListening} onKeyDown={(event) => { if (event.key === " ") startListening(); }} onKeyUp={(event) => { if (event.key === " ") stopListening(); }} aria-label={isListening ? "Release to send your voice message" : "Press and hold to talk to gvone"} disabled={chatMutation.isPending}>
               {isListening ? <Waves size={18} /> : <Mic size={18} />}
@@ -255,14 +256,14 @@ export default function Home() {
             <div className="bubble-stack" aria-live="polite">
               {recentMessages.map((message, index) => (
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
-                  {message.role === "assistant" && <div className="mini-avatar"><img src={CHARACTER_IMAGE} alt="" /></div>}
+                  {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
                     {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button></> : <p>{message.content}</p>}
                   </div>
                 </div>
               ))}
               {chatMutation.isPending && (
-                <div className="message-row assistant-row"><div className="mini-avatar"><img src={CHARACTER_IMAGE} alt="" /></div><div className="speech-bubble assistant-bubble typing"><span /><span /><span /></div></div>
+                <div className="message-row assistant-row"><div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div><div className="speech-bubble assistant-bubble typing"><span /><span /><span /></div></div>
               )}
               {failedMessages && !chatMutation.isPending && (
                 <div className="retry-row"><span>Something interrupted our moment.</span><button type="button" onClick={() => { setFailedMessages(null); chatMutation.mutate({ messages: failedMessages }); }}>Try again</button></div>

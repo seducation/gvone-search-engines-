@@ -60,3 +60,19 @@
 - [x] Make the message writing box taller and easier to use on desktop and mobile.
 - [x] Preserve the no-scroll mobile viewport after enlarging the composer.
 - [x] Verify the updated composer on mobile and desktop, then save a checkpoint.
+- [x] Make assistant AI messages larger, darker, and easier to read.
+- [x] Add a clearer separation between assistant responses and user messages.
+- [x] Use the supplied character reference as the gvone visual identity.
+- [x] Add a dimensional 3D-style character treatment with depth, lighting, and layered placement.
+- [x] Keep the character and chat readable on mobile without scrolling.
+- [x] Verify the refreshed presentation and save a checkpoint.
+- [x] Build a real interactive 3D gvone character scene rather than a flat image treatment.
+- [x] Preserve the supplied blue furry character identity using a layered procedural 3D model and reference texture.
+- [x] Add idle breathing, floating, camera/parallax, and tap/hold reactions to the 3D model.
+- [x] Improve AI chat message contrast, size, spacing, and user/assistant separation.
+- [x] Keep the 3D model and readable chat usable on mobile without scrolling.
+- [x] Verify the 3D scene, chat readability, responsive behavior, and tests.
+- [x] Save a fresh 3D gvone checkpoint.
+- [x] Use the supplied character reference in the 3D scene through a verifiable texture or identity-preserving visual layer.
+- [x] Add pointer/touch parallax so the 3D camera or model framing responds to movement.
+- [x] Save a new checkpoint after the final 3D gvone changes are verified.
