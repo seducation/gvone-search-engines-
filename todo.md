@@ -90,3 +90,9 @@
 - [x] Preserve readable AI chat, voice, and subtle mobile shake feedback.
 - [x] Verify the restored desktop/mobile presentation and tests.
 - [x] Save a fresh restored-look checkpoint.
+- [x] Remove the unnecessary three-dot product menu from the visual experiment.
+- [x] Keep the page focused on one greeting, one conversation preview, simple input, and microphone interaction.
+- [x] Simplify product-like labels and controls without removing the core visual identity.
+- [x] Refine spacing, typography, atmospheric background, character presentation, and micro-interactions.
+- [x] Preserve readable AI response bubbles and responsive no-scroll mobile composition.
+- [x] Verify the minimal concept experience and save a checkpoint.

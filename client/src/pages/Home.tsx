@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Loader2, Mic, MoreHorizontal, Sparkles, Volume2, Waves } from "lucide-react";
+import { ArrowUp, ChevronDown, Loader2, Mic, Sparkles, Volume2, Waves } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -244,10 +244,7 @@ export default function Home() {
           <span className="brand-dot" />
           <span className="brand-name">gvone</span>
         </button>
-        <div className="flex items-center gap-2 sm:gap-4">
-          <button className="header-pill hidden sm:inline-flex" onClick={() => toast("Your private conversation space")}>Private space</button>
-          <button className="icon-button" aria-label="More options" onClick={() => toast("More moments are coming soon")}> <MoreHorizontal size={18} /> </button>
-        </div>
+        <span className="header-note hidden sm:inline-flex">a small presence</span>
       </header>
 
       <section className="relative z-10 mx-auto grid min-h-[calc(100vh-86px)] max-w-[1500px] grid-cols-1 items-center gap-4 px-5 pb-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(370px,0.76fr)] lg:gap-12 lg:px-12 lg:pb-12">
@@ -320,7 +317,7 @@ export default function Home() {
             </form>
           </div>
 
-          <div className="panel-footer"><span><Volume2 size={14} /> Voice enabled</span><span>Press enter to send</span></div>
+          <div className="panel-footer"><span><Volume2 size={14} /> quietly here</span><span>press enter to begin</span></div>
         </div>
       </section>
       <button className="scroll-cue" onClick={() => inputRef.current?.focus()} aria-label="Start a conversation"><span>start a conversation</span><ChevronDown size={15} /></button>

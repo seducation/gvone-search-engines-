@@ -175,3 +175,14 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
 
 .motion-hint { position: absolute; right: 4%; bottom: -6%; color: #8b6c5a; font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
 @media (max-width: 560px) { .motion-hint { right: 2%; bottom: -5%; font-size: 7px; } }
+
+/* Minimal concept direction: fewer product cues, more atmosphere. */
+.header-note { align-items: center; color: #a3a09b; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .13em; text-transform: uppercase; }
+.grain { opacity: .26; }
+.ambient-orb { filter: blur(12px); opacity: .56; }
+.character-caption { letter-spacing: .14em; color: #8a8078; }
+.eyebrow { letter-spacing: .16em; color: #9f6b52; }
+.conversation-card { background: rgba(255,255,255,.7); box-shadow: 0 24px 70px rgba(79, 69, 58, .1); }
+.prompt-chip { background: rgba(255,255,255,.32); }
+.composer:focus-within { border-color: rgba(193,116,75,.42); box-shadow: 0 0 0 4px rgba(193,116,75,.08), 0 12px 30px rgba(79,69,58,.08); }
+.panel-footer { color: #aaa39d; }
