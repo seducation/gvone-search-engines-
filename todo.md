@@ -255,3 +255,7 @@
 - [x] Maintain bounded shared project context across chats in the same workspace.
 - [x] Build minimal desktop/mobile project navigation and workspace management UI.
 - [x] Add focused tests, verify workflows, and save a checkpoint.
+
+- [x] Hide chat-only Feed Memory notes when a different conversation is active.
+- [x] Keep chat-only notes out of context for every non-assigned conversation.
+- [x] Verify cross-chat isolation with tests and responsive previews, then save a checkpoint.

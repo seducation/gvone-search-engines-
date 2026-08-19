@@ -73,9 +73,13 @@ export function buildMemoryContext(conversations: ChatHistoryConversation[], act
   return relevant.slice(0, maxChars);
 }
 
+export function getVisibleFedMemories(items: FedMemory[], activeChatId: string): FedMemory[] {
+  return items.filter((item) => item.scope === "global" || item.chatId === activeChatId);
+}
+
 export function buildFedMemoryContext(items: FedMemory[], activeChatId: string, maxChars = 2800): string {
-  const references = items
-    .filter((item) => item.enabled && item.content.trim() && (item.scope === "global" || item.chatId === activeChatId))
+  const references = getVisibleFedMemories(items, activeChatId)
+    .filter((item) => item.enabled && item.content.trim())
     .slice(0, 4)
     .map((item, index) => `${index + 1}. ${item.content.trim()}`)
     .join("\n");

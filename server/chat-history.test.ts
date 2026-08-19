@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
 
 describe("chat history helpers", () => {
   it("uses the first user message as a readable conversation title", () => {
@@ -60,6 +60,7 @@ describe("chat history helpers", () => {
     expect(buildFedMemoryContext(notes, "alpha")).toContain("Friday deadline");
     expect(buildFedMemoryContext(notes, "beta")).not.toContain("Friday deadline");
     expect(buildFedMemoryContext(notes, "beta")).toContain("thoughtful");
+    expect(getVisibleFedMemories(notes, "beta").map((item) => item.id)).toEqual(["global"]);
   });
 
   it("builds bounded shared context from other chats in the active project only", () => {
