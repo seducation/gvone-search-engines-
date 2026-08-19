@@ -169,3 +169,13 @@
 - [x] Return a retryable web-source error state instead of silently swallowing search failures.
 - [x] Broaden searches when fewer than four unique sources are found, while never fabricating sources.
 - [x] Verify the assistant response contract includes source results and complete the test suite.
+
+- [x] Persist source sets for each assistant reply within saved conversations.
+- [x] Add a dedicated Web results button beneath each assistant response.
+- [x] Open the selected response’s source list in a focused drawer or panel.
+- [x] Verify previous-chat source access, responsive behavior, and tests.
+- [x] Save a checkpoint after per-response web-result controls are complete.
+
+- [x] Verify a saved conversation restores its per-response source sets after reopening.
+- [x] Verify the dedicated Web results drawer on desktop and mobile.
+- [x] Save a final checkpoint after response-level source access is verified.

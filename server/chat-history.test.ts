@@ -19,4 +19,15 @@ describe("chat history helpers", () => {
     expect(upsertConversation(old, replacement, 3).map((item) => item.id)).toEqual(["1", "0", "2"]);
     expect(upsertConversation(old, { id: "new", title: "new", messages: [], updatedAt: 9 }, 3).map((item) => item.id)).toEqual(["new", "0", "1"]);
   });
+
+  it("retains per-response source sets when a conversation is stored", () => {
+    const next: ChatHistoryConversation = {
+      id: "sources",
+      title: "Saved sources",
+      messages: [{ role: "assistant", content: "Here are some sources." }],
+      sourceSets: { 0: { query: "useful sources", results: [{ title: "Example", url: "https://example.com", domain: "example.com", snippet: "A source", favicon: "https://example.com/favicon.ico" }] } },
+      updatedAt: 3,
+    };
+    expect(upsertConversation([], next)[0].sourceSets?.[0].results).toHaveLength(1);
+  });
 });

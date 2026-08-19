@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { getConversationTitle, upsertConversation } from "@/lib/chatHistory";
+import { getConversationTitle, upsertConversation, type ChatHistorySourceSet } from "@/lib/chatHistory";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -26,6 +26,7 @@ type SavedConversation = {
   id: string;
   title: string;
   messages: ChatMessage[];
+  sourceSets?: Record<number, ChatHistorySourceSet>;
   updatedAt: number;
 };
 
@@ -103,12 +104,17 @@ export default function Home() {
     return seeded;
   });
   const [input, setInput] = useState("");
-  const [webQuery, setWebQuery] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("preview") === "web-results" ? (params.get("q") ?? "Snapdragon 8 Gen 3 phones") : "";
+  const [responseSources, setResponseSources] = useState<Record<number, ChatHistorySourceSet>>(() => {
+    if (new URLSearchParams(window.location.search).get("preview")) return {};
+    try {
+      const activeId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+      return readSavedConversations().find((conversation) => conversation.id === activeId)?.sourceSets ?? {};
+    } catch {
+      return {};
+    }
   });
-  const [webResults, setWebResults] = useState<WebResult[]>([]);
-  const [webResultsError, setWebResultsError] = useState("");
+  const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
+  const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(null);
   const [conversations, setConversations] = useState<SavedConversation[]>(readSavedConversations);
   const [activeSessionId, setActiveSessionId] = useState(() => {
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
@@ -175,26 +181,21 @@ export default function Home() {
     window.setTimeout(() => window.speechSynthesis.speak(utterance), 40);
   };
 
-  const webPreviewMutation = trpc.assistant.webResults.useMutation();
   const webRetryMutation = trpc.assistant.webResults.useMutation();
   const chatMutation = trpc.assistant.chat.useMutation({
-    onSuccess: ({ content, results, webError }) => {
+    onSuccess: ({ content, results, webError }, variables) => {
       setFailedMessages(null);
-      setWebResults(results ?? []);
-      setWebResultsError(webError ?? "");
+      const assistantIndex = variables.messages.length;
+      const query = variables.messages.at(-1)?.content ?? "";
+      setResponseSources((current) => ({ ...current, [assistantIndex]: { query, results: results ?? [], error: webError ?? undefined } }));
       setMessages((current) => [...current, { role: "assistant", content }]);
       if (autoSpeak) speakText(content);
     },
     onError: (_error, variables) => {
-      setWebResultsError("Website sources are temporarily unavailable.");
       setFailedMessages(variables.messages);
       toast.error("I couldn’t reach the conversation just now. Please try again.");
     },
   });
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("preview") === "web-results" && webQuery) webPreviewMutation.mutate({ query: webQuery });
-  }, [webQuery]);
 
   useEffect(() => {
     const Recognition = (window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition
@@ -242,16 +243,16 @@ export default function Home() {
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
     const title = getConversationTitle(messages);
-    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, updatedAt: Date.now() }));
-  }, [activeSessionId, messages]);
+    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, sourceSets: responseSources, updatedAt: Date.now() }));
+  }, [activeSessionId, messages, responseSources]);
 
   const startNewChat = () => {
     const nextId = safeId();
     setActiveSessionId(nextId);
     setMessages(starterMessages);
-    setWebQuery("");
-    setWebResults([]);
-    setWebResultsError("");
+    setResponseSources({});
+    setActiveSourceIndex(null);
+    setSourceDrawerOpen(false);
     setInput("");
     setFailedMessages(null);
     setMenuOpen(false);
@@ -262,9 +263,9 @@ export default function Home() {
   const openConversation = (conversation: SavedConversation) => {
     setActiveSessionId(conversation.id);
     setMessages(conversation.messages);
-    setWebQuery(conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "");
-    setWebResults([]);
-    setWebResultsError("");
+    setResponseSources(conversation.sourceSets ?? {});
+    setActiveSourceIndex(null);
+    setSourceDrawerOpen(false);
     setInput("");
     setFailedMessages(null);
     setHistoryOpen(false);
@@ -276,19 +277,20 @@ export default function Home() {
     toast.success("Conversation removed");
   };
 
-  const retryWebResults = () => {
-    if (!webQuery) return;
-    webRetryMutation.mutate({ query: webQuery }, {
-      onSuccess: ({ results }) => { setWebResults(results); setWebResultsError(""); },
-      onError: () => setWebResultsError("Website sources are temporarily unavailable."),
+  const retryWebResults = (messageIndex: number) => {
+    const sourceSet = responseSources[messageIndex];
+    if (!sourceSet?.query) return;
+    webRetryMutation.mutate({ query: sourceSet.query }, {
+      onSuccess: ({ results }) => setResponseSources((current) => ({ ...current, [messageIndex]: { ...sourceSet, results, error: undefined } })),
+      onError: () => setResponseSources((current) => ({ ...current, [messageIndex]: { ...sourceSet, error: "Website sources are temporarily unavailable." } })),
     });
   };
 
   const clearCurrentChat = () => {
     setMessages(starterMessages);
-    setWebQuery("");
-    setWebResults([]);
-    setWebResultsError("");
+    setResponseSources({});
+    setActiveSourceIndex(null);
+    setSourceDrawerOpen(false);
     setFailedMessages(null);
     setMenuOpen(false);
     toast.success("Current conversation cleared");
@@ -312,7 +314,6 @@ export default function Home() {
     if (!trimmed || chatMutation.isPending) return;
     const nextMessages = [...messages, { role: "user" as const, content: trimmed }];
     setMessages(nextMessages);
-    setWebQuery(trimmed);
     setFailedMessages(null);
     setInput("");
     chatMutation.mutate({ messages: nextMessages });
@@ -410,6 +411,8 @@ export default function Home() {
     setIsListening(false);
   };
 
+  const activeSourceSet = activeSourceIndex === null ? null : responseSources[activeSourceIndex] ?? null;
+
   return (
     <main className={cn("assistant-shell min-h-screen overflow-hidden bg-[#f4f0ea] text-[#1f2430]", !ambientMotion && "ambient-muted")}>
       <div className="grain" aria-hidden="true" />
@@ -465,6 +468,24 @@ export default function Home() {
         </aside>
       </>}
 
+      {sourceDrawerOpen && activeSourceSet && <>
+        <button className="drawer-backdrop" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results" />
+        <aside className="source-results-drawer" aria-label="Web results for this response">
+          <div className="drawer-heading"><div><span className="drawer-kicker">gvone sources</span><h2>Web results</h2></div><button className="drawer-close" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results"><X size={18} /></button></div>
+          <section className="web-results" aria-label="Website sources">
+            <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {activeSourceSet.query}</strong></div><span className="web-results-info">saved sources</span></div>
+            {webRetryMutation.isPending && <div className="web-results-loading"><span /><span /><span /> Refreshing websites…</div>}
+            {!webRetryMutation.isPending && activeSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
+              <img src={result.favicon} alt="" className="web-result-favicon" />
+              <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p><div className="web-result-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); }}><Copy size={12} /> copy</button><button type="button" onClick={() => { if (navigator.share) void navigator.share({ title: result.title, url: result.url }); else { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); } }}><Share2 size={12} /> share</button><button type="button" aria-label="Like source"><ThumbsUp size={12} /></button><button type="button" aria-label="Dislike source"><ThumbsDown size={12} /></button></div></div>
+            </article>)}
+            {!webRetryMutation.isPending && activeSourceSet.error && <div className="web-results-error">{activeSourceSet.error}<button type="button" onClick={() => retryWebResults(activeSourceIndex ?? -1)}>Retry sources</button></div>}
+            {!webRetryMutation.isPending && !activeSourceSet.error && !activeSourceSet.results.length && <div className="web-results-error">No source pages were found for this query.</div>}
+            {!webRetryMutation.isPending && activeSourceSet.results.length >= 5 && <button className="web-results-more" type="button" onClick={() => toast("Showing the five most relevant saved sources")}>Show more results <ChevronDown size={14} /></button>}
+          </section>
+        </aside>
+      </>}
+
       <section className={cn("relative z-10 mx-auto grid min-h-[calc(100vh-86px)] max-w-[1500px] grid-cols-1 items-center gap-4 px-5 pb-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(370px,0.76fr)] lg:gap-12 lg:px-12 lg:pb-12", `chat-level-${chatLevel}`)}>
         <div className={cn("character-stage", hasEntered && "is-visible", isChatExpanded && "chat-character-compressed")}>
           <div className="ambient-orb orb-one" />
@@ -512,7 +533,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button></> : <p>{message.content}</p>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <p>{message.content}</p>}
                   </div>
                 </div>
               ))}
@@ -522,17 +543,6 @@ export default function Home() {
               {failedMessages && !chatMutation.isPending && (
                 <div className="retry-row"><span>Something interrupted our moment.</span><button type="button" onClick={() => { setFailedMessages(null); chatMutation.mutate({ messages: failedMessages }); }}>Try again</button></div>
               )}
-              {webQuery && (messages.at(-1)?.role === "assistant" || chatMutation.isPending) && <section className="web-results" aria-label="Web results">
-                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {webQuery}</strong></div><span className="web-results-info">live sources</span></div>
-                {(chatMutation.isPending || webPreviewMutation.isPending || webRetryMutation.isPending) && <div className="web-results-loading"><span /><span /><span /> Finding relevant websites…</div>}
-                {!chatMutation.isPending && !webPreviewMutation.isPending && (webResults.length ? webResults : (webPreviewMutation.data?.results ?? [])).map((result) => <article className="web-result-card" key={result.url}>
-                  <img src={result.favicon} alt="" className="web-result-favicon" />
-                  <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p><div className="web-result-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); }}><Copy size={12} /> copy</button><button type="button" onClick={() => { if (navigator.share) void navigator.share({ title: result.title, url: result.url }); else { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); } }}><Share2 size={12} /> share</button><button type="button" aria-label="Like source"><ThumbsUp size={12} /></button><button type="button" aria-label="Dislike source"><ThumbsDown size={12} /></button></div></div>
-                </article>)}
-                {!chatMutation.isPending && !webPreviewMutation.isPending && !webRetryMutation.isPending && webResultsError && <div className="web-results-error">{webResultsError}<button type="button" onClick={retryWebResults}>Retry sources</button></div>}
-                {!chatMutation.isPending && !webPreviewMutation.isPending && !webRetryMutation.isPending && !webResultsError && !(webResults.length || webPreviewMutation.data?.results?.length) && <div className="web-results-error">No source pages were found for this query.</div>}
-                {!chatMutation.isPending && !webPreviewMutation.isPending && !webRetryMutation.isPending && (webResults.length || webPreviewMutation.data?.results?.length || 0) >= 5 && <button className="web-results-more" type="button" onClick={() => toast("Showing the five most relevant sources for now")}>Show more results <ChevronDown size={14} /></button>}
-              </section>}
               <div ref={messagesEndRef} />
             </div>
 

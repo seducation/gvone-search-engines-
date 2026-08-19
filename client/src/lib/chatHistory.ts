@@ -3,10 +3,25 @@ export type ChatHistoryMessage = {
   content: string;
 };
 
+export type ChatHistoryWebResult = {
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  favicon: string;
+};
+
+export type ChatHistorySourceSet = {
+  query: string;
+  results: ChatHistoryWebResult[];
+  error?: string;
+};
+
 export type ChatHistoryConversation = {
   id: string;
   title: string;
   messages: ChatHistoryMessage[];
+  sourceSets?: Record<number, ChatHistorySourceSet>;
   updatedAt: number;
 };
 
