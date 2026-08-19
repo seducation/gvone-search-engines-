@@ -205,3 +205,14 @@
 
 - [x] Capture a deterministic populated latest-results state at desktop and mobile sizes.
 - [x] Save the final web-results refinement checkpoint after deterministic verification.
+
+- [x] Add an image attachment flow for visual identification in gvone chat.
+- [x] Add vision-backed image analysis with clear, grounded assistant responses.
+- [x] Add image discovery results relevant to the uploaded image or prompt.
+- [x] Build mature visual-chat controls, loading states, and accessible mobile presentation.
+- [x] Verify image workflows, error handling, privacy cues, and tests.
+- [x] Save a checkpoint after the visual assistant upgrade is complete.
+
+- [x] Add an opt-in prompt-only image discovery mode for visual references without an upload.
+- [x] Verify the image attach, identification, discovery, and failure states through focused test coverage and responsive previews.
+- [x] Save the fully verified visual assistant upgrade checkpoint.

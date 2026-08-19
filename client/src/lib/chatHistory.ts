@@ -1,6 +1,7 @@
 export type ChatHistoryMessage = {
   role: "user" | "assistant";
   content: string;
+  image?: { key: string; url: string; name: string };
 };
 
 export type ChatHistoryWebResult = {
@@ -17,11 +18,26 @@ export type ChatHistorySourceSet = {
   error?: string;
 };
 
+export type ChatHistoryVisualResult = {
+  title: string;
+  url: string;
+  domain: string;
+  caption: string;
+  imageUrl: string;
+};
+
+export type ChatHistoryVisualSet = {
+  query: string;
+  results: ChatHistoryVisualResult[];
+  error?: string;
+};
+
 export type ChatHistoryConversation = {
   id: string;
   title: string;
   messages: ChatHistoryMessage[];
   sourceSets?: Record<number, ChatHistorySourceSet>;
+  visualSets?: Record<number, ChatHistoryVisualSet>;
   updatedAt: number;
 };
 

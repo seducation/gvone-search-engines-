@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, Globe2, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, ScanSearch, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { getConversationTitle, upsertConversation, type ChatHistorySourceSet } from "@/lib/chatHistory";
+import { getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet } from "@/lib/chatHistory";
 
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  image?: { key: string; url: string; name: string };
 };
 
 type WebResult = {
@@ -27,6 +28,7 @@ type SavedConversation = {
   title: string;
   messages: ChatMessage[];
   sourceSets?: Record<number, ChatHistorySourceSet>;
+  visualSets?: Record<number, ChatHistoryVisualSet>;
   updatedAt: number;
 };
 
@@ -113,8 +115,19 @@ export default function Home() {
       return {};
     }
   });
+  const [visualSets, setVisualSets] = useState<Record<number, ChatHistoryVisualSet>>(() => {
+    if (new URLSearchParams(window.location.search).get("preview")) return {};
+    try {
+      const activeId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+      return readSavedConversations().find((conversation) => conversation.id === activeId)?.visualSets ?? {};
+    } catch { return {}; }
+  });
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
   const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(null);
+  const [visualDrawerOpen, setVisualDrawerOpen] = useState(false);
+  const [activeVisualIndex, setActiveVisualIndex] = useState<number | null>(null);
+  const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
+  const [visualDiscoveryMode, setVisualDiscoveryMode] = useState(false);
   const [conversations, setConversations] = useState<SavedConversation[]>(readSavedConversations);
   const [activeSessionId, setActiveSessionId] = useState(() => {
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
@@ -151,6 +164,7 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const unlockAudio = () => {
     if (audioUnlocked) return;
@@ -182,12 +196,14 @@ export default function Home() {
   };
 
   const webRetryMutation = trpc.assistant.webResults.useMutation();
+  const imageUploadMutation = trpc.assistant.uploadImage.useMutation();
   const chatMutation = trpc.assistant.chat.useMutation({
-    onSuccess: ({ content, results, webError }, variables) => {
+    onSuccess: ({ content, results, webError, visualResults, visualQuery, visualError }, variables) => {
       setFailedMessages(null);
       const assistantIndex = variables.messages.length;
       const query = variables.messages.at(-1)?.content ?? "";
-      setResponseSources((current) => ({ ...current, [assistantIndex]: { query, results: results ?? [], error: webError ?? undefined } }));
+      if (results.length || webError) setResponseSources((current) => ({ ...current, [assistantIndex]: { query, results: results ?? [], error: webError ?? undefined } }));
+      if (visualResults.length || visualError) setVisualSets((current) => ({ ...current, [assistantIndex]: { query: visualQuery ?? query, results: visualResults, error: visualError ?? undefined } }));
       setMessages((current) => [...current, { role: "assistant", content }]);
       if (autoSpeak) speakText(content);
     },
@@ -243,16 +259,20 @@ export default function Home() {
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
     const title = getConversationTitle(messages);
-    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, sourceSets: responseSources, updatedAt: Date.now() }));
-  }, [activeSessionId, messages, responseSources]);
+    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, sourceSets: responseSources, visualSets, updatedAt: Date.now() }));
+  }, [activeSessionId, messages, responseSources, visualSets]);
 
   const startNewChat = () => {
     const nextId = safeId();
     setActiveSessionId(nextId);
     setMessages(starterMessages);
     setResponseSources({});
+    setVisualSets({});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
+    setActiveVisualIndex(null);
+    setVisualDrawerOpen(false);
+    setAttachedImage(null);
     setInput("");
     setFailedMessages(null);
     setMenuOpen(false);
@@ -264,8 +284,12 @@ export default function Home() {
     setActiveSessionId(conversation.id);
     setMessages(conversation.messages);
     setResponseSources(conversation.sourceSets ?? {});
+    setVisualSets(conversation.visualSets ?? {});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
+    setActiveVisualIndex(null);
+    setVisualDrawerOpen(false);
+    setAttachedImage(null);
     setInput("");
     setFailedMessages(null);
     setHistoryOpen(false);
@@ -289,8 +313,12 @@ export default function Home() {
   const clearCurrentChat = () => {
     setMessages(starterMessages);
     setResponseSources({});
+    setVisualSets({});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
+    setActiveVisualIndex(null);
+    setVisualDrawerOpen(false);
+    setAttachedImage(null);
     setFailedMessages(null);
     setMenuOpen(false);
     toast.success("Current conversation cleared");
@@ -309,14 +337,37 @@ export default function Home() {
     toast.success("Conversation exported");
   };
 
+  const uploadImage = async (file: File) => {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast.error("Choose a JPG, PNG, or WebP image."); return; }
+    if (file.size > 5_000_000) { toast.error("Choose an image smaller than 5 MB."); return; }
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+        reader.onerror = () => reject(new Error("Unable to read this image."));
+        reader.readAsDataURL(file);
+      });
+      imageUploadMutation.mutate({ name: file.name, mimeType: file.type as "image/jpeg" | "image/png" | "image/webp", base64 }, {
+        onSuccess: (image) => { setAttachedImage(image); toast.success("Image attached — ask gvone to identify it."); },
+        onError: (error) => toast.error(error.message || "Image upload failed. Please try again."),
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to read this image.");
+    }
+  };
+
   const sendMessage = (value: string) => {
     const trimmed = value.trim();
-    if (!trimmed || chatMutation.isPending) return;
-    const nextMessages = [...messages, { role: "user" as const, content: trimmed }];
+    if ((!trimmed && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending) return;
+    const content = trimmed || "What can you tell me about this image?";
+    const nextMessages = [...messages, { role: "user" as const, content, image: attachedImage ?? undefined }];
     setMessages(nextMessages);
     setFailedMessages(null);
     setInput("");
-    chatMutation.mutate({ messages: nextMessages });
+    const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
+    setAttachedImage(null);
+    setVisualDiscoveryMode(false);
+    chatMutation.mutate({ messages: nextMessages, discoverVisuals });
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -412,8 +463,10 @@ export default function Home() {
   };
 
   const activeSourceSet = activeSourceIndex === null ? null : responseSources[activeSourceIndex] ?? null;
+  const activeVisualSet = activeVisualIndex === null ? null : visualSets[activeVisualIndex] ?? null;
   const latestSourceIndex = messages.at(-1)?.role === "assistant" ? messages.length - 1 : null;
   const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
+  const latestVisualSet = latestSourceIndex === null ? null : visualSets[latestSourceIndex] ?? null;
 
   return (
     <main className={cn("assistant-shell min-h-screen overflow-hidden bg-[#f4f0ea] text-[#1f2430]", !ambientMotion && "ambient-muted")}>
@@ -488,6 +541,19 @@ export default function Home() {
         </aside>
       </>}
 
+      {visualDrawerOpen && activeVisualSet && <>
+        <button className="drawer-backdrop source-drawer-backdrop" type="button" onClick={() => setVisualDrawerOpen(false)} aria-label="Close visual matches" />
+        <aside className="source-results-drawer visual-results-drawer" aria-label="Visual matches for this response">
+          <div className="drawer-heading"><div><span className="drawer-kicker">gvone vision</span><h2>Visual matches</h2></div><button className="drawer-close" type="button" onClick={() => setVisualDrawerOpen(false)} aria-label="Close visual matches"><X size={18} /></button></div>
+          <section className="visual-results" aria-label="Related visual references">
+            <div className="visual-results-heading"><div><span><ScanSearch size={13} /> image discovery</span><strong>Related to: {activeVisualSet.query}</strong></div><small>saved references</small></div>
+            <div className="visual-result-grid">{activeVisualSet.results.map((result) => <a className="visual-result-card" href={result.url} target="_blank" rel="noreferrer" key={result.url}><img src={result.imageUrl} alt="" /><span><b>{result.title}</b><small>{result.domain}</small><em>{result.caption}</em></span><ExternalLink size={13} /></a>)}</div>
+            {activeVisualSet.error && <div className="web-results-error">{activeVisualSet.error}</div>}
+            {!activeVisualSet.error && !activeVisualSet.results.length && <div className="web-results-error">No related visual references were found.</div>}
+          </section>
+        </aside>
+      </>}
+
       <section className={cn("relative z-10 mx-auto grid min-h-[calc(100vh-86px)] max-w-[1500px] grid-cols-1 items-center gap-4 px-5 pb-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(370px,0.76fr)] lg:gap-12 lg:px-12 lg:pb-12", `chat-level-${chatLevel}`)}>
         <div className={cn("character-stage", hasEntered && "is-visible", isChatExpanded && "chat-character-compressed")}>
           <div className="ambient-orb orb-one" />
@@ -535,7 +601,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <p>{message.content}</p>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}{visualSets[index] && index !== latestSourceIndex && <button type="button" className="visual-results-trigger" onClick={() => { setActiveVisualIndex(index); setVisualDrawerOpen(true); }}><ScanSearch size={12} /> Visual matches <span>{visualSets[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
                   </div>
                 </div>
               ))}
@@ -546,6 +612,13 @@ export default function Home() {
                 <div className="retry-row"><span>Something interrupted our moment.</span><button type="button" onClick={() => { setFailedMessages(null); chatMutation.mutate({ messages: failedMessages }); }}>Try again</button></div>
               )}
               <div ref={messagesEndRef} />
+              {latestVisualSet && <section className="visual-results latest-visual-results" aria-label="Latest image discovery results">
+                <div className="visual-results-heading"><div><span><ScanSearch size={13} /> image discovery</span><strong>Visual references for: {latestVisualSet.query}</strong></div><small>latest reply</small></div>
+                <div className="visual-result-grid">{latestVisualSet.results.slice(0, 3).map((result) => <a className="visual-result-card" href={result.url} target="_blank" rel="noreferrer" key={result.url}><img src={result.imageUrl} alt="" /><span><b>{result.title}</b><small>{result.domain}</small><em>{result.caption}</em></span><ExternalLink size={13} /></a>)}</div>
+                {latestVisualSet.error && <div className="web-results-error">{latestVisualSet.error}</div>}
+                {!latestVisualSet.error && !latestVisualSet.results.length && <div className="web-results-error">No related visual references were found.</div>}
+                {latestVisualSet.results.length > 3 && <button className="web-results-more" type="button" onClick={() => { setActiveVisualIndex(latestSourceIndex); setVisualDrawerOpen(true); }}>Explore all visual matches <ChevronDown size={14} /></button>}
+              </section>}
               {latestSourceSet && <section className="web-results latest-web-results" aria-label="Latest web results">
                 <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><span className="web-results-info">latest reply</span></div>
                 {latestSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
@@ -562,11 +635,15 @@ export default function Home() {
               {suggestedPrompts.map((prompt) => <button key={prompt} className="prompt-chip" onClick={() => sendMessage(prompt)} disabled={chatMutation.isPending}>{prompt}</button>)}
             </div>}
 
-            <form className="composer" onSubmit={handleSubmit}>
+            <form className={cn("composer", attachedImage && "has-image")} onSubmit={handleSubmit}>
+              <input ref={imageInputRef} className="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.currentTarget.value = ""; }} aria-label="Attach an image for identification" />
+              {attachedImage && <div className="attached-image-chip"><img src={attachedImage.url} alt="Attached for identification" /><span>{attachedImage.name}</span><small>visual analysis</small><button type="button" onClick={() => setAttachedImage(null)} aria-label="Remove attached image"><X size={12} /></button></div>}
               <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} placeholder="Say anything…" aria-label="Message your character assistant" disabled={chatMutation.isPending} />
               <div className="composer-actions">
+                <button type="button" className="composer-icon image-attach-button" onClick={() => imageInputRef.current?.click()} disabled={chatMutation.isPending || imageUploadMutation.isPending} aria-label="Attach image for identification">{imageUploadMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={17} />}</button>
+                <button type="button" className={cn("composer-icon", "visual-discovery-button", visualDiscoveryMode && "active")} onClick={() => setVisualDiscoveryMode((value) => !value)} disabled={chatMutation.isPending || imageUploadMutation.isPending} aria-pressed={visualDiscoveryMode} aria-label="Toggle image discovery for this prompt"><ScanSearch size={16} /></button>
                 <button type="button" className={cn("composer-icon", isListening && "active")} onClick={() => { setIsListening((value) => !value); toast(isListening ? "Voice input paused" : "Voice input is ready when you are"); }} aria-label="Toggle voice input"><Mic size={17} /></button>
-                <button type="submit" className="send-button" disabled={!input.trim() || chatMutation.isPending} aria-label="Send message">{chatMutation.isPending ? <Loader2 size={17} className="animate-spin" /> : <ArrowUp size={18} />}</button>
+                <button type="submit" className="send-button" disabled={(!input.trim() && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending} aria-label="Send message">{chatMutation.isPending ? <Loader2 size={17} className="animate-spin" /> : <ArrowUp size={18} />}</button>
               </div>
             </form>
           </div>

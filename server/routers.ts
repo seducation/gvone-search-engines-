@@ -4,11 +4,20 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { searchWeb } from "./webSearch";
+import { discoverImages } from "./imageDiscovery";
+import { analyzeImage } from "./visualAssistant";
+import { storageGetSignedUrl, storagePut } from "./storage";
 import { publicProcedure, router } from "./_core/trpc";
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().min(1).max(4000),
+  image: z.object({ key: z.string().min(1).max(400), url: z.string().min(1).max(700), name: z.string().min(1).max(160) }).optional(),
+});
+const imageUploadSchema = z.object({
+  name: z.string().min(1).max(160),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  base64: z.string().min(20).max(7_000_000),
 });
 
 export const appRouter = router({
@@ -23,9 +32,31 @@ export const appRouter = router({
   }),
 
   assistant: router({
+      uploadImage: publicProcedure.input(imageUploadSchema).mutation(async ({ input }) => {
+        const bytes = Buffer.from(input.base64, "base64");
+        if (!bytes.length || bytes.length > 5_000_000) throw new Error("Please choose an image smaller than 5 MB.");
+        const extension = input.mimeType === "image/png" ? "png" : input.mimeType === "image/webp" ? "webp" : "jpg";
+        const { key, url } = await storagePut(`gvone-visuals/${Date.now()}-${crypto.randomUUID()}.${extension}`, bytes, input.mimeType);
+        return { key, url, name: input.name };
+      }),
       chat: publicProcedure
-        .input(z.object({ messages: z.array(chatMessageSchema).min(1).max(20) }))
+        .input(z.object({ messages: z.array(chatMessageSchema).min(1).max(20), discoverVisuals: z.boolean().optional().default(false) }))
         .mutation(async ({ input }) => {
+        const latestUserMessage = [...input.messages].reverse().find((message) => message.role === "user");
+        const latestImage = latestUserMessage?.image;
+        let visualResults: Awaited<ReturnType<typeof discoverImages>> = [];
+        let visualError: string | null = null;
+        let visualQuery: string | null = null;
+        if (latestImage) {
+          try {
+            const analysis = await analyzeImage({ imageUrl: await storageGetSignedUrl(latestImage.key), prompt: latestUserMessage?.content ?? "" });
+            visualQuery = analysis.discoveryQuery;
+            const results = await discoverImages(analysis.discoveryQuery);
+            return { content: analysis.answer, results: [], webError: null, visualResults: results, visualQuery, visualError: null };
+          } catch {
+            visualError = "I couldn’t complete the visual analysis just now. Please try another image.";
+          }
+        }
         const response = await invokeLLM({
           messages: [
             {
@@ -41,13 +72,20 @@ export const appRouter = router({
         if (typeof content !== "string" || !content.trim()) {
           throw new Error("The assistant returned an empty response.");
         }
-        const latestUserMessage = [...input.messages].reverse().find((message) => message.role === "user");
         let results: Awaited<ReturnType<typeof searchWeb>> = [];
         let webError: string | null = null;
         if (latestUserMessage) {
           try { results = await searchWeb(latestUserMessage.content); } catch { webError = "Website sources are temporarily unavailable."; }
         }
-        return { content: content.trim(), results, webError };
+        if (input.discoverVisuals && latestUserMessage) {
+          try {
+            visualQuery = latestUserMessage.content;
+            visualResults = await discoverImages(visualQuery);
+          } catch {
+            visualError = "Visual references are temporarily unavailable.";
+          }
+        }
+        return { content: content.trim(), results, webError, visualResults, visualQuery, visualError };
       }),
       webResults: publicProcedure
         .input(z.object({ query: z.string().min(2).max(240) }))
