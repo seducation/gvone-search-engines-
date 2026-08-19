@@ -44,14 +44,22 @@ const suggestedPrompts = [
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const preview = new URLSearchParams(window.location.search).get("preview");
-    if (preview !== "expanded") return starterMessages;
-    return [
-      ...starterMessages,
-      { role: "user", content: "Tell me something unexpected." },
-      { role: "assistant", content: "A small moment can become a doorway when you give it your full attention." },
-      { role: "user", content: "Help me find a little inspiration." },
-      { role: "assistant", content: "Start with one honest question, then let the next idea arrive without rushing it." },
+    const levelMatch = preview?.match(/^level-(\d)$/);
+    const previewLevel = levelMatch ? Math.min(Math.max(Number(levelMatch[1]), 0), 4) : preview === "expanded" ? 2 : 0;
+    if (previewLevel === 0) return starterMessages;
+    const seeded: ChatMessage[] = [...starterMessages];
+    const seedPairs = [
+      ["Tell me something unexpected.", "A small moment can become a doorway when you give it your full attention."],
+      ["Help me find a little inspiration.", "Start with one honest question, then let the next idea arrive without rushing it."],
+      ["I need a calm moment.", "Let the noise soften. You do not have to solve everything in the next minute."],
+      ["What should we explore next?", "Follow the thread that feels quietly alive. That is usually where the interesting part begins."],
     ];
+    for (let index = 0; index < previewLevel; index += 1) {
+      const pair = seedPairs[index];
+      if (!pair) continue;
+      seeded.push({ role: "user", content: pair[0] }, { role: "assistant", content: pair[1] });
+    }
+    return seeded;
   });
   const [input, setInput] = useState("");
   const [hasEntered, setHasEntered] = useState(() => {

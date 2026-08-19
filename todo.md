@@ -125,3 +125,9 @@
 - [x] Make each message-driven chat level visibly taller than the previous level.
 - [x] Keep the composer fixed and preserve the mobile no-scroll layout.
 - [x] Verify initial and expanded desktop/mobile states, then save a checkpoint.
+- [x] Restore clearly visible height growth between each chat level.
+- [x] Increase the progressive gvone shrink and movement in sync with chat expansion.
+- [x] Verify multiple seeded expansion levels on desktop and mobile, then save a checkpoint.
+- [x] Add deterministic preview seeds for chat levels 1 through 4.
+- [x] Capture desktop and mobile screenshots for each seeded expansion level.
+- [x] Save a new checkpoint after the complete level-by-level verification.

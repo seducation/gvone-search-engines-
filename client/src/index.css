@@ -319,3 +319,38 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
   .chat-level-3 .conversation-card { height: 292px !important; min-height: 292px !important; }
   .chat-level-4 .conversation-card { height: 316px !important; min-height: 316px !important; }
 }
+
+/* Visible progressive expansion: each level has a meaningful step and a cinematic height transition. */
+.conversation-card { transition: height 760ms cubic-bezier(.23,1,.32,1), min-height 760ms cubic-bezier(.23,1,.32,1), box-shadow 500ms ease; }
+.conversation-panel { transition: transform 760ms cubic-bezier(.23,1,.32,1), opacity 500ms ease; }
+.conversation-card { height: 320px !important; min-height: 320px !important; }
+.chat-level-1 .conversation-card { height: 430px !important; min-height: 430px !important; }
+.chat-level-2 .conversation-card { height: 540px !important; min-height: 540px !important; }
+.chat-level-3 .conversation-card { height: 650px !important; min-height: 650px !important; }
+.chat-level-4 .conversation-card { height: 760px !important; min-height: 760px !important; }
+.chat-level-1 .character-stage.chat-character-compressed { transform: translateY(-5%) scale(.92); }
+.chat-level-2 .character-stage.chat-character-compressed { transform: translateY(-13%) scale(.82); }
+.chat-level-3 .character-stage.chat-character-compressed { transform: translateY(-21%) scale(.72); }
+.chat-level-4 .character-stage.chat-character-compressed { transform: translateY(-29%) scale(.62); }
+@media (max-width: 1023px) {
+  .conversation-card { height: 278px !important; min-height: 278px !important; }
+  .chat-level-1 .conversation-card { height: 350px !important; min-height: 350px !important; }
+  .chat-level-2 .conversation-card { height: 422px !important; min-height: 422px !important; }
+  .chat-level-3 .conversation-card { height: 494px !important; min-height: 494px !important; }
+  .chat-level-4 .conversation-card { height: 566px !important; min-height: 566px !important; }
+  .chat-level-1 .character-stage.chat-character-compressed { transform: translateY(-4%) scale(.94); }
+  .chat-level-2 .character-stage.chat-character-compressed { transform: translateY(-8%) scale(.88); }
+  .chat-level-3 .character-stage.chat-character-compressed { transform: translateY(-12%) scale(.82); }
+  .chat-level-4 .character-stage.chat-character-compressed { transform: translateY(-16%) scale(.76); }
+}
+@media (max-width: 560px) {
+  .conversation-card { height: 238px !important; min-height: 238px !important; }
+  .chat-level-1 .conversation-card { height: 302px !important; min-height: 302px !important; }
+  .chat-level-2 .conversation-card { height: 366px !important; min-height: 366px !important; }
+  .chat-level-3 .conversation-card { height: 430px !important; min-height: 430px !important; }
+  .chat-level-4 .conversation-card { height: 494px !important; min-height: 494px !important; }
+  .chat-level-1 .character-stage.chat-character-compressed { transform: translateY(-3%) scale(.95); }
+  .chat-level-2 .character-stage.chat-character-compressed { transform: translateY(-6%) scale(.9); }
+  .chat-level-3 .character-stage.chat-character-compressed { transform: translateY(-9%) scale(.85); }
+  .chat-level-4 .character-stage.chat-character-compressed { transform: translateY(-12%) scale(.8); }
+}
