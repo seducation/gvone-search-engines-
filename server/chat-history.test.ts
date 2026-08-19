@@ -31,6 +31,12 @@ describe("chat history helpers", () => {
     expect(upsertConversation([], next)[0].sourceSets?.[0].results).toHaveLength(1);
   });
 
+  it("retains a saved chat’s project assignment when the conversation is updated", () => {
+    const assigned: ChatHistoryConversation = { id: "assigned", title: "Project chat", projectId: "research-studio", messages: [{ role: "user", content: "Keep this in the project." }], updatedAt: 3 };
+    const updated = upsertConversation([assigned], { ...assigned, messages: [...assigned.messages, { role: "assistant", content: "I’ll keep it together." }], updatedAt: 4 });
+    expect(updated[0].projectId).toBe("research-studio");
+  });
+
   it("builds bounded background memory without including the active thread", () => {
     const conversations: ChatHistoryConversation[] = [
       { id: "active", title: "Current", messages: [{ role: "user", content: "Current thread" }], updatedAt: 4 },

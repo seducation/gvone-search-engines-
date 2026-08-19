@@ -259,3 +259,12 @@
 - [x] Hide chat-only Feed Memory notes when a different conversation is active.
 - [x] Keep chat-only notes out of context for every non-assigned conversation.
 - [x] Verify cross-chat isolation with tests and responsive previews, then save a checkpoint.
+
+- [x] Add Projects access inside the top-left hamburger navigation.
+- [x] Simplify project navigation into clear chats and projects sections.
+- [x] Redesign the Projects workspace into a familiar chat-first layout with project chats prominent.
+- [x] Keep instructions and files available as compact secondary controls rather than a confusing primary layout.
+- [x] Verify the redesigned project experience on desktop/mobile, run tests, and save a checkpoint.
+
+- [x] Add a direct Add to project action for every saved previous chat.
+- [x] Allow moving a saved chat between projects or back to personal chats.
