@@ -459,11 +459,6 @@ export default function Home() {
         </div>
 
         <div className={cn("conversation-panel", hasEntered && "is-visible", isChatExpanded && "chat-panel-expanded")}>
-          <div className={cn("gvone-chat-header", isChatExpanded && "is-visible")}>
-            <img src={CHARACTER_IMAGE} alt="" aria-hidden="true" />
-            <span><strong>gvone</strong><small>your curious companion</small></span>
-            <i className="gvone-header-status" aria-hidden="true" />
-          </div>
           <div className={cn("hero-copy", isChatExpanded && "is-collapsed")}>
             <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
             <h1>Let’s make<br /><em>something</em> of this moment.</h1>

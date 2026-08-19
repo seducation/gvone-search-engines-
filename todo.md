@@ -154,3 +154,7 @@
 - [x] Preserve gvone’s cinematic layout and responsive no-scroll behavior with the new chatbot shell.
 - [x] Verify history persistence, menu interactions, mobile/desktop layouts, and tests.
 - [x] Save a new checkpoint after the chatbot shell is complete.
+
+- [x] Remove the redundant compact gvone header from the expanded conversation panel.
+- [x] Preserve the main top-left history and top-right chatbot controls after removing the duplicate header.
+- [x] Verify desktop/mobile expanded chat and save a checkpoint.
