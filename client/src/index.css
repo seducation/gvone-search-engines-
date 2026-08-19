@@ -354,3 +354,55 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
   .chat-level-3 .character-stage.chat-character-compressed { transform: translateY(-9%) scale(.85); }
   .chat-level-4 .character-stage.chat-character-compressed { transform: translateY(-12%) scale(.8); }
 }
+
+/* Anchored panel geometry: the compact gvone header stays fixed while only the message viewport grows and scrolls. */
+.conversation-panel { display: flex; flex-direction: column; min-height: 0; }
+.gvone-chat-header { flex: 0 0 auto; }
+.hero-copy { flex: 0 0 auto; max-height: 320px; overflow: hidden; transition: max-height 620ms cubic-bezier(.23,1,.32,1), opacity 420ms ease, transform 620ms cubic-bezier(.23,1,.32,1), margin 620ms cubic-bezier(.23,1,.32,1); }
+.hero-copy.is-collapsed { max-height: 0; margin-top: 0; margin-bottom: 0; opacity: 0; transform: translateY(-18px); pointer-events: none; }
+.conversation-card { flex: 0 1 auto; min-height: 0; max-height: calc(100svh - 150px); overflow: hidden; }
+.bubble-stack { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (min-width: 1024px) {
+  .conversation-panel { align-self: start; max-height: calc(100vh - 108px); }
+  .conversation-panel.chat-panel-expanded { max-height: calc(100vh - 100px); }
+  .conversation-card { max-height: calc(100vh - 150px); }
+}
+@media (max-width: 1023px) {
+  .conversation-panel { max-height: calc(100svh - 112px); }
+  .conversation-card { max-height: calc(100svh - 260px); }
+}
+@media (max-width: 560px) {
+  .conversation-panel { max-height: calc(100svh - 92px); }
+  .conversation-card { max-height: calc(100svh - 228px); }
+}
+
+/* Let the character stage give up real layout height as the chat rises; transforms alone cannot move the panel. */
+@media (max-width: 1023px) {
+  .assistant-shell > section { align-items: start; }
+  .character-stage.chat-character-compressed { transition: min-height 760ms cubic-bezier(.23,1,.32,1), height 760ms cubic-bezier(.23,1,.32,1), transform 760ms cubic-bezier(.23,1,.32,1); }
+  .chat-level-1 .character-stage.chat-character-compressed { height: 380px; min-height: 380px; }
+  .chat-level-2 .character-stage.chat-character-compressed { height: 320px; min-height: 320px; }
+  .chat-level-3 .character-stage.chat-character-compressed { height: 260px; min-height: 260px; }
+  .chat-level-4 .character-stage.chat-character-compressed { height: 210px; min-height: 210px; }
+}
+@media (max-width: 560px) {
+  .chat-level-1 .character-stage.chat-character-compressed { height: 345px; min-height: 345px; }
+  .chat-level-2 .character-stage.chat-character-compressed { height: 285px; min-height: 285px; }
+  .chat-level-3 .character-stage.chat-character-compressed { height: 230px; min-height: 230px; }
+  .chat-level-4 .character-stage.chat-character-compressed { height: 185px; min-height: 185px; }
+}
+
+/* Empty-state baseline: no visitor message means the chat stays at the compact initial composition. */
+.chat-level-0 .conversation-card { height: 300px !important; min-height: 300px !important; }
+.chat-level-0 .conversation-panel { max-height: calc(100vh - 118px); }
+@media (max-width: 1023px) {
+  .chat-level-0 .conversation-card { height: 250px !important; min-height: 250px !important; }
+  .chat-level-0 .conversation-panel { max-height: calc(100svh - 100px); }
+}
+@media (max-width: 560px) {
+  .chat-level-0 .conversation-card { height: 225px !important; min-height: 225px !important; }
+  .chat-level-0 .conversation-panel { max-height: calc(100svh - 84px); }
+}
+@media (max-width: 560px) and (max-height: 720px) {
+  .chat-level-0 .conversation-card { height: 210px !important; min-height: 210px !important; }
+}

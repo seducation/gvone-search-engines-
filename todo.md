@@ -131,3 +131,14 @@
 - [x] Add deterministic preview seeds for chat levels 1 through 4.
 - [x] Capture desktop and mobile screenshots for each seeded expansion level.
 - [x] Save a new checkpoint after the complete level-by-level verification.
+- [x] Keep the compact gvone header and chat-panel top edge anchored in a stable position.
+- [x] Bound message growth inside an internal scroll region rather than pushing content above the header limit.
+- [x] Keep the composer fixed at the panel bottom while messages scroll above it.
+- [x] Verify the bounded panel on desktop and mobile and save a checkpoint.
+- [x] Capture fresh desktop level-1 and level-4 screenshots after the final anchored-panel CSS changes.
+- [x] Save a new checkpoint after bounded-panel desktop/mobile verification.
+- [x] Reconfirm the bounded-panel verification item after the checkpoint is saved.
+- [x] Match the empty chat card height to the initial no-message composition.
+- [x] Keep post-message expansion disabled until the visitor submits the first message.
+- [x] Preserve the anchored header and fixed composer after expansion begins.
+- [x] Verify empty and post-message states on desktop/mobile and save a checkpoint.
