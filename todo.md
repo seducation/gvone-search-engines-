@@ -40,3 +40,20 @@
 - [x] Add a focused gesture state helper and Vitest coverage.
 - [x] Capture a new mobile screenshot after the latest interaction refinements.
 - [x] Save a fresh checkpoint after the final Jarvis-like refinements are verified.
+- [ ] Select and document the neural voice provider and voice profile.
+- [ ] Add secure server-side neural speech synthesis for gvone responses.
+- [ ] Add the required provider secret and never expose it to the browser.
+- [ ] Add neural audio playback, loading, error, replay, and browser fallback states.
+- [ ] Add tests for the neural voice contract and response handling.
+- [ ] Verify the neural voice experience and responsive controls.
+- [ ] Save a fresh neural-voice checkpoint.
+- [ ] Configure the ElevenLabs API key securely for gvone.
+- [ ] Add server-side ElevenLabs synthesis while preserving browser voice fallback.
+- [ ] Add credential validation and tests for the ElevenLabs voice path.
+- [ ] Verify neural audio playback and save a fresh checkpoint.
+- [x] Fit the mobile gvone experience to the viewport height without page scrolling.
+- [x] Preserve character visibility, in-circle microphone, greeting, and chat composer on narrow screens.
+- [x] Adapt typography, spacing, and card heights for short and tall mobile screens.
+- [x] Verify mobile no-scroll behavior and recheck desktop layout.
+- [x] Save a fresh mobile-optimized checkpoint.
+- [x] Remove the inactive ElevenLabs credential test from the default suite while the provider is skipped.
