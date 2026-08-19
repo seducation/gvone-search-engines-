@@ -85,3 +85,8 @@
 - [x] Respect prefers-reduced-motion by softening or disabling shake-driven antigravity motion and cues.
 - [x] Capture a fresh desktop screenshot and verify the no-motion fallback after the antigravity changes.
 - [x] Save a new checkpoint after the final antigravity verification.
+- [x] Restore the previous polished supplied-image character presentation.
+- [x] Remove the rough procedural 3D character from the visible hero.
+- [x] Preserve readable AI chat, voice, and subtle mobile shake feedback.
+- [x] Verify the restored desktop/mobile presentation and tests.
+- [x] Save a fresh restored-look checkpoint.

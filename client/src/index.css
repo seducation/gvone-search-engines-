@@ -153,9 +153,9 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
 }
 
 /* Dimensional 3D character and readable conversation hierarchy. */
-.gvone-3d-canvas { width: 100%; height: 100%; display: block; touch-action: none; filter: drop-shadow(0 22px 26px rgba(22, 44, 78, .2)); }
-.character-frame { overflow: visible; }
-.character-image { object-fit: contain; }
+.motion-active { transform: translate3d(4px, -3px, 0) rotate(1deg) scale(1.018); }
+.character-frame { overflow: hidden; }
+.character-image { object-fit: cover; }
 .mini-avatar { display: grid; place-items: center; background: radial-gradient(circle at 35% 28%, #8ed6ff 0 16%, #1977ca 42%, #123b75 100%); box-shadow: 0 5px 14px rgba(22, 63, 113, .22); }
 .mini-avatar-dot { width: 8px; height: 8px; border-radius: 50%; background: #eaf8ff; box-shadow: 4px 0 0 -1px #17335e; }
 .assistant-bubble { background: rgba(255, 255, 255, .93); border: 1px solid rgba(36, 46, 64, .14); box-shadow: 0 12px 26px rgba(55, 53, 48, .09); color: #202734; font-size: 14px; line-height: 1.55; font-weight: 500; }

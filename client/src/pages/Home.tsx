@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import Gvone3D from "@/components/Gvone3D";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -266,7 +265,7 @@ export default function Home() {
               <div className="frame-glow" />
               <div className="touch-ripple ripple-one" />
               <div className="touch-ripple ripple-two" />
-              <Gvone3D mode={getGestureMode(isTouched, isListening, isSpeaking)} motion={motionInput} className="character-image" />
+              <img src={CHARACTER_IMAGE} alt="gvone, your character assistant" className={cn("character-image", Math.hypot(motionInput.x, motionInput.y) > 0.16 && "motion-active")} />
             </div>
             <button className="voice-orbit-button" type="button" onPointerDown={startListening} onPointerUp={stopListening} onPointerLeave={stopListening} onKeyDown={(event) => { if (event.key === " ") startListening(); }} onKeyUp={(event) => { if (event.key === " ") stopListening(); }} aria-label={isListening ? "Release to send your voice message" : "Press and hold to talk to gvone"} disabled={chatMutation.isPending}>
               {isListening ? <Waves size={18} /> : <Mic size={18} />}
