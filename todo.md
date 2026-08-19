@@ -142,3 +142,7 @@
 - [x] Keep post-message expansion disabled until the visitor submits the first message.
 - [x] Preserve the anchored header and fixed composer after expansion begins.
 - [x] Verify empty and post-message states on desktop/mobile and save a checkpoint.
+- [x] Let active chat expand beyond the gvone image area into the available viewport height.
+- [x] Keep gvone as a compact top chat header once conversation mode is active.
+- [x] Keep the message list scrollable and composer fixed at the bottom of the full-height panel.
+- [x] Verify desktop/mobile beyond-image expansion and save a checkpoint.
