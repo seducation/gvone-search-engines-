@@ -8,6 +8,7 @@ import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability 
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
 import { buildMemoryContext, getConversationTitle, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet } from "@/lib/chatHistory";
+import { getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -78,6 +79,9 @@ const suggestedPrompts = [
 ];
 
 export default function Home() {
+  const progressPreview = new URLSearchParams(window.location.search).get("preview");
+  const isProgressPreview = progressPreview === "progress" || progressPreview === "progress-compact";
+  const isProgressPreviewExpanded = progressPreview === "progress";
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const preview = new URLSearchParams(window.location.search).get("preview");
     if (!preview) {
@@ -129,7 +133,6 @@ export default function Home() {
   const [activeVisualIndex, setActiveVisualIndex] = useState<number | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
   const [visualDiscoveryMode, setVisualDiscoveryMode] = useState(false);
-  const [activeCapability, setActiveCapability] = useState<"chat" | "research" | "identify" | "discover">("chat");
   const [conversations, setConversations] = useState<SavedConversation[]>(readSavedConversations);
   const [activeSessionId, setActiveSessionId] = useState(() => {
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
@@ -167,6 +170,8 @@ export default function Home() {
   const [lastSpokenText, setLastSpokenText] = useState("");
   const [motionInput, setMotionInput] = useState({ x: 0, y: 0 });
   const [motionPermission, setMotionPermission] = useState<"idle" | "enabled" | "denied" | "unsupported">("idle");
+  const [taskStageIndex, setTaskStageIndex] = useState(0);
+  const [taskProgressOpen, setTaskProgressOpen] = useState(isProgressPreviewExpanded);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -245,6 +250,20 @@ export default function Home() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, chatMutation.isPending]);
+
+  useEffect(() => {
+    if (!chatMutation.isPending) {
+      setTaskStageIndex(isProgressPreview ? 2 : 0);
+      setTaskProgressOpen(isProgressPreviewExpanded);
+      return;
+    }
+    setTaskStageIndex(0);
+    setTaskProgressOpen(false);
+    const timer = window.setInterval(() => {
+      setTaskStageIndex((current) => Math.min(current + 1, TASK_PROGRESS_STAGES.length - 1));
+    }, 700);
+    return () => window.clearInterval(timer);
+  }, [chatMutation.isPending, isProgressPreview, isProgressPreviewExpanded]);
 
   const userMessageCount = messages.filter((message) => message.role === "user").length;
   const chatLevel = Math.min(userMessageCount, 4);
@@ -361,19 +380,6 @@ export default function Home() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to read this image.");
     }
-  };
-
-  const chooseCapability = (capability: "chat" | "research" | "identify" | "discover") => {
-    setActiveCapability(capability);
-    if (capability === "identify") {
-      imageInputRef.current?.click();
-      return;
-    }
-    if (capability === "discover") {
-      setVisualDiscoveryMode(true);
-      toast("Visual discovery is ready for your next prompt.");
-    }
-    window.setTimeout(() => inputRef.current?.focus(), 30);
   };
 
   const sendMessage = (value: string) => {
@@ -519,6 +525,8 @@ export default function Home() {
         </div>
       </header>
 
+      {(chatMutation.isPending || isProgressPreview) && <section className={cn("header-task-progress", taskProgressOpen && "is-expanded")} aria-label="gvone task progress"><button className="header-task-summary" type="button" onClick={() => setTaskProgressOpen((value) => !value)} aria-expanded={taskProgressOpen}><span className="task-progress-orb" /><span><b>{TASK_PROGRESS_STAGES[taskStageIndex]}</b><small>gvone is working</small></span><span className="header-task-meter"><i style={{ width: `${getTaskProgressPercent(taskStageIndex)}%` }} /></span><ChevronDown size={15} /></button>{taskProgressOpen && <div className="header-task-details"><div className="header-task-steps">{TASK_PROGRESS_STAGES.map((stage, index) => <div className={cn(index < taskStageIndex && "is-complete", index === taskStageIndex && "is-current")} key={stage}><i /> <span>{stage}</span><small>{index < taskStageIndex ? "done" : index === taskStageIndex ? "in progress" : "queued"}</small></div>)}</div></div>}</section>}
+
       {historyOpen && <>
         <button className="drawer-backdrop" type="button" onClick={() => setHistoryOpen(false)} aria-label="Close chat history" />
         <aside className="history-drawer" aria-label="Saved conversations">
@@ -627,16 +635,6 @@ export default function Home() {
             <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
             <h1>Let’s make<br /><em>something</em> of this moment.</h1>
             <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it. Hold the circle to speak.</p>
-          </div>
-
-          <div className="capability-workbench" aria-label="gvone capabilities">
-            <div className="workspace-status"><span className="workspace-kicker">workspace</span><strong>{activeCapability === "chat" ? "Conversation" : activeCapability === "research" ? "Web research" : activeCapability === "identify" ? "Image identification" : "Visual discovery"}</strong><small><i className={cn("memory-indicator", memoryEnabled && "is-active")} />{memoryEnabled ? `${Math.min(conversations.filter((conversation) => conversation.id !== activeSessionId).length, 4)} prior chats available as context` : "memory paused"}</small></div>
-            <div className="capability-actions" role="toolbar" aria-label="Choose an assistant capability">
-              <button type="button" className={cn(activeCapability === "chat" && "is-active")} onClick={() => chooseCapability("chat")}><Sparkles size={14} /><span>Chat</span></button>
-              <button type="button" className={cn(activeCapability === "research" && "is-active")} onClick={() => chooseCapability("research")}><Globe2 size={14} /><span>Research</span></button>
-              <button type="button" className={cn(activeCapability === "identify" && "is-active")} onClick={() => chooseCapability("identify")}><ImagePlus size={14} /><span>Identify</span></button>
-              <button type="button" className={cn(activeCapability === "discover" && "is-active")} onClick={() => chooseCapability("discover")}><ScanSearch size={14} /><span>Discover</span></button>
-            </div>
           </div>
 
           <div className="conversation-card">

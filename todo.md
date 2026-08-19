@@ -223,3 +223,16 @@
 - [x] Add memory controls that let users view and clear conversation context.
 - [x] Verify persistent contextual recall, workspace interactions, mobile responsiveness, and tests.
 - [x] Save a checkpoint after the Manus-inspired workspace is complete.
+
+- [x] Remove the separate workspace capability card and restore the prior clean conversation composition.
+- [x] Retain memory, research, image identification, and discovery functions through subtle existing controls.
+- [x] Verify the restored desktop/mobile balance and save a checkpoint.
+
+- [x] Add a compact task-progress bar for gvone’s working lifecycle.
+- [x] Show clear stages for understanding, researching, analyzing, and replying without a separate workspace card.
+- [x] Preserve the clean desktop/mobile conversation layout and reduced-motion support.
+- [x] Verify progress transitions and save a checkpoint.
+
+- [x] Move task progress directly below the top header as a compact expandable control.
+- [x] Reveal the detailed working stages only when the header progress control is tapped.
+- [x] Verify desktop/mobile expanded progress behavior and save a checkpoint.
