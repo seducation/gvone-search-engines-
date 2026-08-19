@@ -318,7 +318,6 @@ export default function Home() {
             </form>
           </div>
 
-          <div className="panel-footer"><span><Volume2 size={14} /> quietly here</span><span>press enter to begin</span></div>
         </div>
       </section>
       <button className="scroll-cue" onClick={() => inputRef.current?.focus()} aria-label="Start a conversation"><span>start a conversation</span><ChevronDown size={15} /></button>

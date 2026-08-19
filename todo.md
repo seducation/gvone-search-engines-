@@ -100,3 +100,7 @@
 - [x] Add a custom idle expression state for gvone using restrained visual cues.
 - [x] Keep listening, speaking, touch, reduced-motion, and mobile behavior coherent.
 - [x] Verify the refined visual states and save a checkpoint.
+- [x] Extend the conversation card and message viewing area into the unused lower space.
+- [x] Remove the “quietly here” and “press enter to begin” footer labels.
+- [x] Preserve readable messages, input usability, and no-scroll mobile behavior.
+- [x] Verify desktop/mobile presentation and save a checkpoint.
