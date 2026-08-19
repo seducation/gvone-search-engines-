@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ChevronDown, Loader2, Mic, Sparkles, Volume2, Waves } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
@@ -42,7 +42,17 @@ const suggestedPrompts = [
 ];
 
 export default function Home() {
-  const [messages, setMessages] = useState<ChatMessage[]>(starterMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const preview = new URLSearchParams(window.location.search).get("preview");
+    if (preview !== "expanded") return starterMessages;
+    return [
+      ...starterMessages,
+      { role: "user", content: "Tell me something unexpected." },
+      { role: "assistant", content: "A small moment can become a doorway when you give it your full attention." },
+      { role: "user", content: "Help me find a little inspiration." },
+      { role: "assistant", content: "Start with one honest question, then let the next idea arrive without rushing it." },
+    ];
+  });
   const [input, setInput] = useState("");
   const [hasEntered, setHasEntered] = useState(() => {
     try {
@@ -132,7 +142,9 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, chatMutation.isPending]);
 
-  const recentMessages = useMemo(() => messages.slice(-4), [messages]);
+  const userMessageCount = messages.filter((message) => message.role === "user").length;
+  const chatLevel = Math.min(userMessageCount, 4);
+  const isChatExpanded = userMessageCount > 0;
 
   const sendMessage = (value: string) => {
     const trimmed = value.trim();
@@ -247,8 +259,8 @@ export default function Home() {
         <span className="header-note hidden sm:inline-flex">a small presence</span>
       </header>
 
-      <section className="relative z-10 mx-auto grid min-h-[calc(100vh-86px)] max-w-[1500px] grid-cols-1 items-center gap-4 px-5 pb-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(370px,0.76fr)] lg:gap-12 lg:px-12 lg:pb-12">
-        <div className={cn("character-stage", hasEntered && "is-visible")}>
+      <section className={cn("relative z-10 mx-auto grid min-h-[calc(100vh-86px)] max-w-[1500px] grid-cols-1 items-center gap-4 px-5 pb-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(370px,0.76fr)] lg:gap-12 lg:px-12 lg:pb-12", `chat-level-${chatLevel}`)}>
+        <div className={cn("character-stage", hasEntered && "is-visible", isChatExpanded && "chat-character-compressed")}>
           <div className="ambient-orb orb-one" />
           <div className="ambient-orb orb-two" />
           <div className="character-caption">
@@ -281,14 +293,19 @@ export default function Home() {
           <div className="status-chip"><span className="status-pulse" /> online now</div>
         </div>
 
-        <div className={cn("conversation-panel", hasEntered && "is-visible")}>
+        <div className={cn("conversation-panel", hasEntered && "is-visible", isChatExpanded && "chat-panel-expanded")}>
+          <div className={cn("gvone-chat-header", isChatExpanded && "is-visible")}>
+            <img src={CHARACTER_IMAGE} alt="" aria-hidden="true" />
+            <span><strong>gvone</strong><small>your curious companion</small></span>
+            <i className="gvone-header-status" aria-hidden="true" />
+          </div>
           <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
           <h1>Let’s make<br /><em>something</em> of this moment.</h1>
           <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it. Hold the circle to speak.</p>
 
           <div className="conversation-card">
             <div className="bubble-stack" aria-live="polite">
-              {recentMessages.map((message, index) => (
+              {messages.map((message, index) => (
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>

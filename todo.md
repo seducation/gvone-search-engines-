@@ -104,3 +104,11 @@
 - [x] Remove the “quietly here” and “press enter to begin” footer labels.
 - [x] Preserve readable messages, input usability, and no-scroll mobile behavior.
 - [x] Verify desktop/mobile presentation and save a checkpoint.
+- [x] Add message-count-driven expanding chat layout state.
+- [x] Gradually compress the gvone image area upward as conversation content grows.
+- [x] Transition the character area into a compact gvone chat header with consistent styling.
+- [x] Preserve readable message history, composer usability, and responsive no-scroll behavior.
+- [x] Verify the transition with seeded local conversation states and save a checkpoint.
+- [x] Render the full conversation history in expanded chat instead of limiting the visible list to four messages.
+- [x] Add a deterministic preview/seed state for validating the compressed-character and compact-header transition.
+- [x] Capture expanded-state desktop and mobile previews, then save a new checkpoint.
