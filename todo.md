@@ -121,3 +121,7 @@
 - [x] Make the chat card grow gradually rather than jumping to a large height.
 - [x] Animate gvone shrinking smoothly toward the compact chat header as messages accumulate.
 - [x] Prevent overlap and verify writing access on desktop and mobile before saving a checkpoint.
+- [x] Restore a compact but usable initial chat-card height.
+- [x] Make each message-driven chat level visibly taller than the previous level.
+- [x] Keep the composer fixed and preserve the mobile no-scroll layout.
+- [x] Verify initial and expanded desktop/mobile states, then save a checkpoint.
