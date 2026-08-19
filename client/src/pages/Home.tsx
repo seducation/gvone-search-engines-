@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Download, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Search, Settings, Sparkles, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import { ArrowUp, ChevronDown, Copy, Download, ExternalLink, Globe2, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +12,14 @@ import { getConversationTitle, upsertConversation } from "@/lib/chatHistory";
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+};
+
+type WebResult = {
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  favicon: string;
 };
 
 type SavedConversation = {
@@ -95,6 +103,12 @@ export default function Home() {
     return seeded;
   });
   const [input, setInput] = useState("");
+  const [webQuery, setWebQuery] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("preview") === "web-results" ? (params.get("q") ?? "Snapdragon 8 Gen 3 phones") : "";
+  });
+  const [webResults, setWebResults] = useState<WebResult[]>([]);
+  const [webResultsError, setWebResultsError] = useState("");
   const [conversations, setConversations] = useState<SavedConversation[]>(readSavedConversations);
   const [activeSessionId, setActiveSessionId] = useState(() => {
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
@@ -161,17 +175,26 @@ export default function Home() {
     window.setTimeout(() => window.speechSynthesis.speak(utterance), 40);
   };
 
+  const webPreviewMutation = trpc.assistant.webResults.useMutation();
+  const webRetryMutation = trpc.assistant.webResults.useMutation();
   const chatMutation = trpc.assistant.chat.useMutation({
-    onSuccess: ({ content }) => {
+    onSuccess: ({ content, results, webError }) => {
       setFailedMessages(null);
+      setWebResults(results ?? []);
+      setWebResultsError(webError ?? "");
       setMessages((current) => [...current, { role: "assistant", content }]);
       if (autoSpeak) speakText(content);
     },
     onError: (_error, variables) => {
+      setWebResultsError("Website sources are temporarily unavailable.");
       setFailedMessages(variables.messages);
       toast.error("I couldn’t reach the conversation just now. Please try again.");
     },
   });
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("preview") === "web-results" && webQuery) webPreviewMutation.mutate({ query: webQuery });
+  }, [webQuery]);
 
   useEffect(() => {
     const Recognition = (window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition
@@ -226,6 +249,9 @@ export default function Home() {
     const nextId = safeId();
     setActiveSessionId(nextId);
     setMessages(starterMessages);
+    setWebQuery("");
+    setWebResults([]);
+    setWebResultsError("");
     setInput("");
     setFailedMessages(null);
     setMenuOpen(false);
@@ -236,6 +262,9 @@ export default function Home() {
   const openConversation = (conversation: SavedConversation) => {
     setActiveSessionId(conversation.id);
     setMessages(conversation.messages);
+    setWebQuery(conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "");
+    setWebResults([]);
+    setWebResultsError("");
     setInput("");
     setFailedMessages(null);
     setHistoryOpen(false);
@@ -247,8 +276,19 @@ export default function Home() {
     toast.success("Conversation removed");
   };
 
+  const retryWebResults = () => {
+    if (!webQuery) return;
+    webRetryMutation.mutate({ query: webQuery }, {
+      onSuccess: ({ results }) => { setWebResults(results); setWebResultsError(""); },
+      onError: () => setWebResultsError("Website sources are temporarily unavailable."),
+    });
+  };
+
   const clearCurrentChat = () => {
     setMessages(starterMessages);
+    setWebQuery("");
+    setWebResults([]);
+    setWebResultsError("");
     setFailedMessages(null);
     setMenuOpen(false);
     toast.success("Current conversation cleared");
@@ -272,6 +312,7 @@ export default function Home() {
     if (!trimmed || chatMutation.isPending) return;
     const nextMessages = [...messages, { role: "user" as const, content: trimmed }];
     setMessages(nextMessages);
+    setWebQuery(trimmed);
     setFailedMessages(null);
     setInput("");
     chatMutation.mutate({ messages: nextMessages });
@@ -481,6 +522,17 @@ export default function Home() {
               {failedMessages && !chatMutation.isPending && (
                 <div className="retry-row"><span>Something interrupted our moment.</span><button type="button" onClick={() => { setFailedMessages(null); chatMutation.mutate({ messages: failedMessages }); }}>Try again</button></div>
               )}
+              {webQuery && (messages.at(-1)?.role === "assistant" || chatMutation.isPending) && <section className="web-results" aria-label="Web results">
+                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {webQuery}</strong></div><span className="web-results-info">live sources</span></div>
+                {(chatMutation.isPending || webPreviewMutation.isPending || webRetryMutation.isPending) && <div className="web-results-loading"><span /><span /><span /> Finding relevant websites…</div>}
+                {!chatMutation.isPending && !webPreviewMutation.isPending && (webResults.length ? webResults : (webPreviewMutation.data?.results ?? [])).map((result) => <article className="web-result-card" key={result.url}>
+                  <img src={result.favicon} alt="" className="web-result-favicon" />
+                  <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p><div className="web-result-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); }}><Copy size={12} /> copy</button><button type="button" onClick={() => { if (navigator.share) void navigator.share({ title: result.title, url: result.url }); else { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); } }}><Share2 size={12} /> share</button><button type="button" aria-label="Like source"><ThumbsUp size={12} /></button><button type="button" aria-label="Dislike source"><ThumbsDown size={12} /></button></div></div>
+                </article>)}
+                {!chatMutation.isPending && !webPreviewMutation.isPending && !webRetryMutation.isPending && webResultsError && <div className="web-results-error">{webResultsError}<button type="button" onClick={retryWebResults}>Retry sources</button></div>}
+                {!chatMutation.isPending && !webPreviewMutation.isPending && !webRetryMutation.isPending && !webResultsError && !(webResults.length || webPreviewMutation.data?.results?.length) && <div className="web-results-error">No source pages were found for this query.</div>}
+                {!chatMutation.isPending && !webPreviewMutation.isPending && !webRetryMutation.isPending && (webResults.length || webPreviewMutation.data?.results?.length || 0) >= 5 && <button className="web-results-more" type="button" onClick={() => toast("Showing the five most relevant sources for now")}>Show more results <ChevronDown size={14} /></button>}
+              </section>}
               <div ref={messagesEndRef} />
             </div>
 

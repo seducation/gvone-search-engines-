@@ -3,6 +3,7 @@ import { invokeLLM } from "./_core/llm";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
+import { searchWeb } from "./webSearch";
 import { publicProcedure, router } from "./_core/trpc";
 
 const chatMessageSchema = z.object({
@@ -22,9 +23,9 @@ export const appRouter = router({
   }),
 
   assistant: router({
-    chat: publicProcedure
-      .input(z.object({ messages: z.array(chatMessageSchema).min(1).max(20) }))
-      .mutation(async ({ input }) => {
+      chat: publicProcedure
+        .input(z.object({ messages: z.array(chatMessageSchema).min(1).max(20) }))
+        .mutation(async ({ input }) => {
         const response = await invokeLLM({
           messages: [
             {
@@ -40,8 +41,17 @@ export const appRouter = router({
         if (typeof content !== "string" || !content.trim()) {
           throw new Error("The assistant returned an empty response.");
         }
-        return { content: content.trim() };
+        const latestUserMessage = [...input.messages].reverse().find((message) => message.role === "user");
+        let results: Awaited<ReturnType<typeof searchWeb>> = [];
+        let webError: string | null = null;
+        if (latestUserMessage) {
+          try { results = await searchWeb(latestUserMessage.content); } catch { webError = "Website sources are temporarily unavailable."; }
+        }
+        return { content: content.trim(), results, webError };
       }),
+      webResults: publicProcedure
+        .input(z.object({ query: z.string().min(2).max(240) }))
+        .mutation(async ({ input }) => ({ results: await searchWeb(input.query) })),
   }),
 });
 

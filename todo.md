@@ -158,3 +158,14 @@
 - [x] Remove the redundant compact gvone header from the expanded conversation panel.
 - [x] Preserve the main top-left history and top-right chatbot controls after removing the duplicate header.
 - [x] Verify desktop/mobile expanded chat and save a checkpoint.
+
+- [x] Add relevant web-result retrieval for each new user chat turn.
+- [x] Show four to five source cards beneath the latest gvone response only.
+- [x] Add source actions, favicons/thumbnails, and a compact show-more results treatment.
+- [x] Preserve the current chat layout and mobile no-scroll behavior with web results.
+- [x] Verify web-result loading, errors, responsive presentation, and tests.
+- [x] Save a new checkpoint after web results are complete.
+
+- [x] Return a retryable web-source error state instead of silently swallowing search failures.
+- [x] Broaden searches when fewer than four unique sources are found, while never fabricating sources.
+- [x] Verify the assistant response contract includes source results and complete the test suite.
