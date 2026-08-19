@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
+import { getGestureMode } from "@/lib/gesture";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -52,25 +53,48 @@ export default function Home() {
   const [failedMessages, setFailedMessages] = useState<ChatMessage[] | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isTouched, setIsTouched] = useState(false);
   const [voiceAvailability, setVoiceAvailability] = useState<VoiceAvailability>("ready");
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [lastSpokenText, setLastSpokenText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const unlockAudio = () => {
+    if (audioUnlocked) return;
+    try {
+      window.speechSynthesis?.cancel();
+      const silent = new SpeechSynthesisUtterance("");
+      silent.volume = 0;
+      window.speechSynthesis?.speak(silent);
+      window.speechSynthesis?.cancel();
+      setAudioUnlocked(true);
+    } catch {
+      setAudioUnlocked(false);
+    }
+  };
+
+  const speakText = (text: string) => {
+    if (!("speechSynthesis" in window) || !text.trim()) return;
+    unlockAudio();
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.trim());
+    utterance.volume = 1;
+    utterance.rate = 0.92;
+    utterance.pitch = 1.02;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    setLastSpokenText(text.trim());
+    window.setTimeout(() => window.speechSynthesis.speak(utterance), 40);
+  };
 
   const chatMutation = trpc.assistant.chat.useMutation({
     onSuccess: ({ content }) => {
       setFailedMessages(null);
       setMessages((current) => [...current, { role: "assistant", content }]);
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(content);
-        utterance.rate = 0.96;
-        utterance.pitch = 1.04;
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-      }
+      speakText(content);
     },
     onError: (_error, variables) => {
       setFailedMessages(variables.messages);
@@ -122,7 +146,15 @@ export default function Home() {
     sendMessage(input);
   };
 
+  const handleCharacterPointerDown = () => {
+    unlockAudio();
+    setIsTouched(true);
+  };
+
+  const handleCharacterPointerUp = () => setIsTouched(false);
+
   const startListening = () => {
+    unlockAudio();
     if (voiceAvailability === "unsupported") {
       toast.error("Voice input needs a browser with microphone speech support.");
       return;
@@ -191,21 +223,24 @@ export default function Home() {
             <span className="caption-line" />
             <span>gvone · your curious companion</span>
           </div>
-          <div className={cn("character-orbit", isListening && "is-listening", isSpeaking && "is-speaking")}>
+          <div className={cn("character-orbit", `gesture-${getGestureMode(isTouched, isListening, isSpeaking)}`)}>
             <div className="orbit-ring ring-one" />
             <div className="orbit-ring ring-two" />
-            <div className="character-frame">
+            <div className={cn("character-frame", isTouched && "is-touched")} onPointerDown={handleCharacterPointerDown} onPointerUp={handleCharacterPointerUp} onPointerLeave={handleCharacterPointerUp}>
               <div className="frame-glow" />
+              <div className="touch-ripple ripple-one" />
+              <div className="touch-ripple ripple-two" />
               <img src={CHARACTER_IMAGE} alt="gvone, your character assistant" className="character-image" />
             </div>
             <button className="voice-orbit-button" type="button" onPointerDown={startListening} onPointerUp={stopListening} onPointerLeave={stopListening} onKeyDown={(event) => { if (event.key === " ") startListening(); }} onKeyUp={(event) => { if (event.key === " ") stopListening(); }} aria-label={isListening ? "Release to send your voice message" : "Press and hold to talk to gvone"} disabled={chatMutation.isPending}>
               {isListening ? <Waves size={18} /> : <Mic size={18} />}
             </button>
             {isListening && <span className="voice-hint">listening… release to send</span>}
-            {!isListening && !isSpeaking && voiceAvailability === "ready" && <span className="voice-hint idle-hint">hold to talk</span>}
+            {!isListening && !isSpeaking && voiceAvailability === "ready" && audioUnlocked && <span className="voice-hint idle-hint">hold to talk</span>}
             {voiceAvailability === "unsupported" && <span className="voice-hint warning-hint">voice unavailable</span>}
             {voiceAvailability === "permission-denied" && <span className="voice-hint warning-hint">allow microphone</span>}
             {isSpeaking && <span className="voice-hint">gvone is speaking</span>}
+            {!audioUnlocked && voiceAvailability === "ready" && <span className="voice-hint audio-hint">tap gvone to wake voice</span>}
           </div>
           <div className="character-shadow" />
           <div className="status-chip"><span className="status-pulse" /> online now</div>
@@ -222,7 +257,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><img src={CHARACTER_IMAGE} alt="" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <Streamdown>{message.content}</Streamdown> : <p>{message.content}</p>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button></> : <p>{message.content}</p>}
                   </div>
                 </div>
               ))}

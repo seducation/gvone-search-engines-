@@ -29,3 +29,14 @@
 - [x] Surface explicit unsupported-browser and microphone-permission-denied voice states near the gvone control.
 - [x] Add focused Vitest coverage for the extracted voice interaction state logic.
 - [x] Save a new checkpoint after the gvone enhancements are fully validated.
+- [x] Add fluid tap and hold gesture states directly to the character image and orbit.
+- [x] Move the microphone control inside the character circle for a more natural interaction.
+- [x] Make assistant speech playback reliably audible with a user-gesture audio unlock path and visible speaking controls.
+- [x] Add a manual replay button for the latest assistant response.
+- [x] Add tests for the new audio and gesture state helpers.
+- [x] Verify the refined interaction on desktop and mobile.
+- [x] Save a fresh refined gvone checkpoint.
+- [x] Animate the orbit rings during character tap and hold states.
+- [x] Add a focused gesture state helper and Vitest coverage.
+- [x] Capture a new mobile screenshot after the latest interaction refinements.
+- [x] Save a fresh checkpoint after the final Jarvis-like refinements are verified.
