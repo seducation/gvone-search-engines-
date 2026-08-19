@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, Loader2, Mic, MoreHorizontal, Sparkles, Volume2 } from "lucide-react";
+import { ArrowUp, ChevronDown, Loader2, Mic, MoreHorizontal, Sparkles, Volume2, Waves } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
+import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -11,6 +12,19 @@ type ChatMessage = {
 };
 
 const CHARACTER_IMAGE = "/manus-storage/character-persona_6467bdc8.jpg";
+
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
 const starterMessages: ChatMessage[] = [
   {
@@ -37,19 +51,42 @@ export default function Home() {
   });
   const [failedMessages, setFailedMessages] = useState<ChatMessage[] | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceAvailability, setVoiceAvailability] = useState<VoiceAvailability>("ready");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const chatMutation = trpc.assistant.chat.useMutation({
     onSuccess: ({ content }) => {
       setFailedMessages(null);
       setMessages((current) => [...current, { role: "assistant", content }]);
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(content);
+        utterance.rate = 0.96;
+        utterance.pitch = 1.04;
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+      }
     },
     onError: (_error, variables) => {
       setFailedMessages(variables.messages);
       toast.error("I couldn’t reach the conversation just now. Please try again.");
     },
   });
+
+  useEffect(() => {
+    const Recognition = (window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition
+      ?? (window as Window & { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition;
+    setVoiceAvailability(getVoiceAvailability(Boolean(Recognition), "speechSynthesis" in window));
+    return () => {
+      recognitionRef.current?.stop();
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
 
   useEffect(() => {
     if (hasEntered) return;
@@ -85,13 +122,60 @@ export default function Home() {
     sendMessage(input);
   };
 
+  const startListening = () => {
+    if (voiceAvailability === "unsupported") {
+      toast.error("Voice input needs a browser with microphone speech support.");
+      return;
+    }
+    if (voiceAvailability === "permission-denied") {
+      toast.error("Microphone access is blocked. Allow it in your browser settings, then try again.");
+      return;
+    }
+    if (isListening || chatMutation.isPending) return;
+    const Recognition = (window as Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition
+      ?? (window as Window & { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition;
+    if (!Recognition) {
+      toast.error("Voice input is not supported in this browser.");
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results).map((result) => result[0]?.transcript ?? "").join(" ");
+      setIsListening(false);
+      recognitionRef.current = null;
+      sendMessage(transcript);
+    };
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      const nextAvailability = voiceErrorToAvailability((event as unknown as { error?: string }).error ?? "");
+      setVoiceAvailability(nextAvailability);
+      toast.error(nextAvailability === "permission-denied" ? "Microphone access is blocked. Allow it, then try again." : "I didn’t catch that. Hold the circle and try again.");
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  };
+
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  };
+
   return (
     <main className="assistant-shell min-h-screen overflow-hidden bg-[#f4f0ea] text-[#1f2430]">
       <div className="grain" aria-hidden="true" />
       <header className="relative z-20 flex items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
-        <button className="brand-mark" aria-label="Character Assistant home">
+          <button className="brand-mark" aria-label="gvone home">
           <span className="brand-dot" />
-          <span className="brand-name">muse</span>
+          <span className="brand-name">gvone</span>
         </button>
         <div className="flex items-center gap-2 sm:gap-4">
           <button className="header-pill hidden sm:inline-flex" onClick={() => toast("Your private conversation space")}>Private space</button>
@@ -105,20 +189,32 @@ export default function Home() {
           <div className="ambient-orb orb-two" />
           <div className="character-caption">
             <span className="caption-line" />
-            <span>your companion for curious moments</span>
+            <span>gvone · your curious companion</span>
           </div>
-          <div className="character-frame">
-            <div className="frame-glow" />
-            <img src={CHARACTER_IMAGE} alt="Your character assistant" className="character-image" />
+          <div className={cn("character-orbit", isListening && "is-listening", isSpeaking && "is-speaking")}>
+            <div className="orbit-ring ring-one" />
+            <div className="orbit-ring ring-two" />
+            <div className="character-frame">
+              <div className="frame-glow" />
+              <img src={CHARACTER_IMAGE} alt="gvone, your character assistant" className="character-image" />
+            </div>
+            <button className="voice-orbit-button" type="button" onPointerDown={startListening} onPointerUp={stopListening} onPointerLeave={stopListening} onKeyDown={(event) => { if (event.key === " ") startListening(); }} onKeyUp={(event) => { if (event.key === " ") stopListening(); }} aria-label={isListening ? "Release to send your voice message" : "Press and hold to talk to gvone"} disabled={chatMutation.isPending}>
+              {isListening ? <Waves size={18} /> : <Mic size={18} />}
+            </button>
+            {isListening && <span className="voice-hint">listening… release to send</span>}
+            {!isListening && !isSpeaking && voiceAvailability === "ready" && <span className="voice-hint idle-hint">hold to talk</span>}
+            {voiceAvailability === "unsupported" && <span className="voice-hint warning-hint">voice unavailable</span>}
+            {voiceAvailability === "permission-denied" && <span className="voice-hint warning-hint">allow microphone</span>}
+            {isSpeaking && <span className="voice-hint">gvone is speaking</span>}
           </div>
           <div className="character-shadow" />
           <div className="status-chip"><span className="status-pulse" /> online now</div>
         </div>
 
         <div className={cn("conversation-panel", hasEntered && "is-visible")}>
-          <div className="eyebrow"><Sparkles size={13} /> A little space for you</div>
+          <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
           <h1>Let’s make<br /><em>something</em> of this moment.</h1>
-          <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it.</p>
+          <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it. Hold the circle to speak.</p>
 
           <div className="conversation-card">
             <div className="bubble-stack" aria-live="polite">
@@ -152,7 +248,7 @@ export default function Home() {
             </form>
           </div>
 
-          <div className="panel-footer"><span><Volume2 size={14} /> Gentle by design</span><span>Press enter to send</span></div>
+          <div className="panel-footer"><span><Volume2 size={14} /> Voice enabled</span><span>Press enter to send</span></div>
         </div>
       </section>
       <button className="scroll-cue" onClick={() => inputRef.current?.focus()} aria-label="Start a conversation"><span>start a conversation</span><ChevronDown size={15} /></button>

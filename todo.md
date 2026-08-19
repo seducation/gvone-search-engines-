@@ -18,3 +18,14 @@
 - [x] Add a visible retry action for failed chat responses.
 - [x] Persist the intro completion flag across visits with durable browser storage.
 - [x] Capture the exact failed chat payload for reliable retry behavior.
+- [x] Rename the visible assistant persona to gvone throughout the experience.
+- [x] Add reference-inspired living motion around the character circle, including tap/hold activity states.
+- [x] Add browser voice playback when gvone responds.
+- [x] Add press-and-hold voice input with speech recognition and transcript submission.
+- [x] Add voice permissions, unsupported-browser, listening, and speaking states.
+- [x] Extend Vitest coverage for voice-related assistant behavior where testable.
+- [x] Verify the enhanced animation and responsive voice controls on desktop and mobile.
+- [x] Save the enhanced gvone checkpoint for delivery.
+- [x] Surface explicit unsupported-browser and microphone-permission-denied voice states near the gvone control.
+- [x] Add focused Vitest coverage for the extracted voice interaction state logic.
+- [x] Save a new checkpoint after the gvone enhancements are fully validated.
