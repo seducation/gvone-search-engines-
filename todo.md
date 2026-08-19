@@ -112,3 +112,7 @@
 - [x] Render the full conversation history in expanded chat instead of limiting the visible list to four messages.
 - [x] Add a deterministic preview/seed state for validating the compressed-character and compact-header transition.
 - [x] Capture expanded-state desktop and mobile previews, then save a new checkpoint.
+- [x] Fade and collapse the editorial headline and intro copy as chat expands.
+- [x] Keep the message list scrollable while anchoring the composer at the bottom of the chat card.
+- [x] Prevent expanded chat content from overlapping or hiding the writing area.
+- [x] Verify initial and expanded desktop/mobile states, then save a checkpoint.

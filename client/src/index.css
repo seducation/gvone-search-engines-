@@ -242,3 +242,21 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
 @media (prefers-reduced-motion: reduce) {
   .gvone-chat-header, .chat-character-compressed, .chat-panel-expanded { transition: none; }
 }
+
+/* Expanded chat hierarchy: let the conversation rise while the composer stays reachable. */
+.hero-copy { max-height: 260px; overflow: hidden; opacity: 1; transform: translateY(0); transition: max-height 460ms cubic-bezier(.23,1,.32,1), opacity 260ms ease-out, transform 460ms cubic-bezier(.23,1,.32,1), margin 460ms cubic-bezier(.23,1,.32,1); }
+.hero-copy.is-collapsed { max-height: 0; margin: 0; opacity: 0; transform: translateY(-12px); pointer-events: none; }
+.conversation-card { overflow: hidden; }
+.bubble-stack { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.prompt-row { flex: 0 0 auto; }
+.composer { flex: 0 0 auto; }
+.chat-panel-expanded { min-height: 0; }
+@media (max-width: 560px) {
+  .hero-copy { max-height: 190px; }
+  .conversation-card { min-height: clamp(300px, 42svh, 430px); }
+  .chat-level-1 .conversation-card, .chat-level-2 .conversation-card, .chat-level-3 .conversation-card, .chat-level-4 .conversation-card { min-height: clamp(300px, 42svh, 430px); }
+}
+@media (max-width: 560px) and (max-height: 720px) {
+  .conversation-card, .chat-level-1 .conversation-card, .chat-level-2 .conversation-card, .chat-level-3 .conversation-card, .chat-level-4 .conversation-card { min-height: 270px; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-copy { transition: none; } }

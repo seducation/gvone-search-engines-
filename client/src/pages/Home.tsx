@@ -299,9 +299,11 @@ export default function Home() {
             <span><strong>gvone</strong><small>your curious companion</small></span>
             <i className="gvone-header-status" aria-hidden="true" />
           </div>
-          <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
-          <h1>Let’s make<br /><em>something</em> of this moment.</h1>
-          <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it. Hold the circle to speak.</p>
+          <div className={cn("hero-copy", isChatExpanded && "is-collapsed")}>
+            <div className="eyebrow"><Sparkles size={13} /> Meet gvone</div>
+            <h1>Let’s make<br /><em>something</em> of this moment.</h1>
+            <p className="intro-copy">A quiet, intelligent presence to think with, wonder with, and talk to whenever you need it. Hold the circle to speak.</p>
+          </div>
 
           <div className="conversation-card">
             <div className="bubble-stack" aria-live="polite">
