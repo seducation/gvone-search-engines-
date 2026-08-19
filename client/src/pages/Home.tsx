@@ -412,6 +412,8 @@ export default function Home() {
   };
 
   const activeSourceSet = activeSourceIndex === null ? null : responseSources[activeSourceIndex] ?? null;
+  const latestSourceIndex = messages.at(-1)?.role === "assistant" ? messages.length - 1 : null;
+  const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
 
   return (
     <main className={cn("assistant-shell min-h-screen overflow-hidden bg-[#f4f0ea] text-[#1f2430]", !ambientMotion && "ambient-muted")}>
@@ -469,7 +471,7 @@ export default function Home() {
       </>}
 
       {sourceDrawerOpen && activeSourceSet && <>
-        <button className="drawer-backdrop" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results" />
+        <button className="drawer-backdrop source-drawer-backdrop" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results" />
         <aside className="source-results-drawer" aria-label="Web results for this response">
           <div className="drawer-heading"><div><span className="drawer-kicker">gvone sources</span><h2>Web results</h2></div><button className="drawer-close" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results"><X size={18} /></button></div>
           <section className="web-results" aria-label="Website sources">
@@ -533,7 +535,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <p>{message.content}</p>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <p>{message.content}</p>}
                   </div>
                 </div>
               ))}
@@ -543,6 +545,16 @@ export default function Home() {
               {failedMessages && !chatMutation.isPending && (
                 <div className="retry-row"><span>Something interrupted our moment.</span><button type="button" onClick={() => { setFailedMessages(null); chatMutation.mutate({ messages: failedMessages }); }}>Try again</button></div>
               )}
+              {latestSourceSet && <section className="web-results latest-web-results" aria-label="Latest web results">
+                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><span className="web-results-info">latest reply</span></div>
+                {latestSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
+                  <img src={result.favicon} alt="" className="web-result-favicon" />
+                  <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p><div className="web-result-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); }}><Copy size={12} /> copy</button><button type="button" onClick={() => { if (navigator.share) void navigator.share({ title: result.title, url: result.url }); else { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); } }}><Share2 size={12} /> share</button><button type="button" aria-label="Like source"><ThumbsUp size={12} /></button><button type="button" aria-label="Dislike source"><ThumbsDown size={12} /></button></div></div>
+                </article>)}
+                {latestSourceSet.error && <div className="web-results-error">{latestSourceSet.error}<button type="button" onClick={() => retryWebResults(latestSourceIndex ?? -1)}>Retry sources</button></div>}
+                {!latestSourceSet.error && !latestSourceSet.results.length && <div className="web-results-error">No source pages were found for this query.</div>}
+                {latestSourceSet.results.length >= 5 && <button className="web-results-more" type="button" onClick={() => { setActiveSourceIndex(latestSourceIndex); setSourceDrawerOpen(true); }}>Show all saved results <ChevronDown size={14} /></button>}
+              </section>}
               <div ref={messagesEndRef} />
             </div>
 

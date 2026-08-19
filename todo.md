@@ -179,3 +179,15 @@
 - [x] Verify a saved conversation restores its per-response source sets after reopening.
 - [x] Verify the dedicated Web results drawer on desktop and mobile.
 - [x] Save a final checkpoint after response-level source access is verified.
+
+- [x] Restore the full web-results section beneath the latest gvone response.
+- [x] Keep dedicated Web results buttons for earlier assistant replies.
+- [x] Blur the background whenever a Web results drawer is open.
+- [x] Verify desktop/mobile latest results, source drawer, and background blur.
+- [x] Save a checkpoint after the refined web-results behavior is complete.
+
+- [x] Capture final populated latest-results and blurred-drawer states on desktop and mobile.
+- [x] Save the final verified latest-results refinement checkpoint.
+
+- [x] Capture a deterministic populated latest-results state at desktop and mobile sizes.
+- [x] Save the final web-results refinement checkpoint after deterministic verification.
