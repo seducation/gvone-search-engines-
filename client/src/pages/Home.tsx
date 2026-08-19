@@ -260,6 +260,7 @@ export default function Home() {
             <div className="orbit-ring ring-two" />
             <div className={cn("character-frame", isTouched && "is-touched")} onPointerDown={handleCharacterPointerDown} onPointerUp={handleCharacterPointerUp} onPointerLeave={handleCharacterPointerUp}>
               <div className="frame-glow" />
+              <div className={cn("idle-expression", !isTouched && !isListening && !isSpeaking && "is-idle")} aria-hidden="true" />
               <div className="touch-ripple ripple-one" />
               <div className="touch-ripple ripple-two" />
               <img src={CHARACTER_IMAGE} alt="gvone, your character assistant" className={cn("character-image", Math.hypot(motionInput.x, motionInput.y) > 0.16 && "motion-active")} />

@@ -186,3 +186,11 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
 .prompt-chip { background: rgba(255,255,255,.32); }
 .composer:focus-within { border-color: rgba(193,116,75,.42); box-shadow: 0 0 0 4px rgba(193,116,75,.08), 0 12px 30px rgba(79,69,58,.08); }
 .panel-footer { color: #aaa39d; }
+
+/* Art-directed ambient motion and gvone idle presence. */
+.assistant-shell::before { content: ""; position: fixed; inset: -18%; z-index: 0; pointer-events: none; background: radial-gradient(circle at 20% 24%, rgba(210, 132, 91, .12), transparent 21%), radial-gradient(circle at 78% 32%, rgba(255,255,255,.72), transparent 26%), radial-gradient(circle at 64% 88%, rgba(187, 205, 214, .12), transparent 22%); animation: ambient-drift 26s ease-in-out infinite alternate; }
+.idle-expression { position: absolute; z-index: 4; left: 50%; top: 19%; width: 28%; height: 16%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(255,255,255,.22), transparent 68%); opacity: 0; pointer-events: none; mix-blend-mode: screen; }
+.idle-expression.is-idle { animation: idle-expression 7s ease-in-out infinite; }
+@keyframes ambient-drift { 0% { transform: translate3d(-1.5%, -1%, 0) scale(1); } 50% { transform: translate3d(1%, 1.5%, 0) scale(1.025); } 100% { transform: translate3d(-.5%, 1%, 0) scale(1.01); } }
+@keyframes idle-expression { 0%, 100% { opacity: .12; transform: translateX(-50%) scale(.92); } 42% { opacity: .22; transform: translateX(-50%) scale(1.05); } 48% { opacity: .06; transform: translateX(-50%) scale(.84); } 56% { opacity: .17; transform: translateX(-50%) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .assistant-shell::before, .idle-expression.is-idle { animation: none; } .idle-expression.is-idle { opacity: .12; } }

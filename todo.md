@@ -96,3 +96,7 @@
 - [x] Refine spacing, typography, atmospheric background, character presentation, and micro-interactions.
 - [x] Preserve readable AI response bubbles and responsive no-scroll mobile composition.
 - [x] Verify the minimal concept experience and save a checkpoint.
+- [x] Add a slow, art-directed ambient background drift with subtle light movement.
+- [x] Add a custom idle expression state for gvone using restrained visual cues.
+- [x] Keep listening, speaking, touch, reduced-motion, and mobile behavior coherent.
+- [x] Verify the refined visual states and save a checkpoint.
