@@ -542,3 +542,26 @@ h1 em { color: #b66d43; font-family: 'Playfair Display', serif; font-weight: 500
 @media (max-width: 560px) { .source-results-drawer { width: 100%; padding: 18px 15px; }.web-results-trigger { font-size: 7px; }.assistant-message-actions { gap: 5px; } }
 
 .latest-web-results { margin-top: 10px; }.source-drawer-backdrop { z-index: 75; background: rgba(30,36,48,.26); backdrop-filter: blur(10px) saturate(.82); }.source-results-drawer { z-index: 80; }
+
+/* Mobile source drawer: a lighter, layered reveal that feels responsive without obscuring the conversation. */
+@media (max-width: 560px) and (prefers-reduced-motion: no-preference) {
+  .source-drawer-backdrop { background: rgba(30,36,48,.20); backdrop-filter: blur(7px) saturate(.9); animation: mobile-source-backdrop-in 260ms cubic-bezier(.23,1,.32,1) both; }
+  .source-results-drawer { overscroll-behavior: contain; animation: mobile-source-drawer-in 340ms cubic-bezier(.23,1,.32,1) both; }
+  .source-results-drawer::before { position: absolute; inset: 0; z-index: -1; content: ""; pointer-events: none; background: linear-gradient(155deg, rgba(255,255,255,.62), transparent 32%); animation: mobile-source-sheen 600ms cubic-bezier(.23,1,.32,1) both; }
+  .source-results-drawer .drawer-heading { animation: mobile-source-heading-in 300ms 60ms cubic-bezier(.23,1,.32,1) both; }
+  .source-results-drawer .web-results-heading { animation: mobile-source-heading-in 300ms 95ms cubic-bezier(.23,1,.32,1) both; }
+  .source-results-drawer .web-result-card { animation: mobile-source-card-in 320ms cubic-bezier(.23,1,.32,1) both; transform-origin: 50% 100%; }
+  .source-results-drawer article.web-result-card:nth-of-type(1) { animation-delay: 120ms; }
+  .source-results-drawer article.web-result-card:nth-of-type(2) { animation-delay: 165ms; }
+  .source-results-drawer article.web-result-card:nth-of-type(3) { animation-delay: 210ms; }
+  .source-results-drawer article.web-result-card:nth-of-type(4) { animation-delay: 255ms; }
+  .source-results-drawer article.web-result-card:nth-of-type(5) { animation-delay: 300ms; }
+  .source-results-drawer .web-result-card:active { transform: scale(.982); transition-duration: 120ms; }
+  .source-results-drawer .web-result-actions button:active, .source-results-drawer .drawer-close:active { transform: scale(.94); }
+}
+@keyframes mobile-source-backdrop-in { from { opacity: 0; backdrop-filter: blur(0) saturate(1); } to { opacity: 1; backdrop-filter: blur(7px) saturate(.9); } }
+@keyframes mobile-source-drawer-in { from { opacity: .72; transform: translateY(28px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes mobile-source-sheen { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mobile-source-heading-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mobile-source-card-in { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .source-results-drawer, .source-drawer-backdrop, .source-results-drawer::before, .source-results-drawer .drawer-heading, .source-results-drawer .web-results-heading, .source-results-drawer .web-result-card { animation: none !important; transition: none !important; } }

@@ -196,5 +196,12 @@
 - [x] Capture final desktop/mobile reply-focused scroll states with website results still manually reachable.
 - [x] Save the verified reply-focused auto-scroll checkpoint.
 
+- [x] Optimize the Web results drawer entrance and exit motion for mobile devices.
+- [x] Tune the mobile source-drawer backdrop blur and dimming for clarity and performance.
+- [x] Verify mobile/desktop drawer presentation and save a checkpoint.
+
+- [x] Add layered drawer entrance motion, staggered source-card reveals, and refined tap feedback.
+- [x] Respect reduced-motion preferences for all new source-drawer effects.
+
 - [x] Capture a deterministic populated latest-results state at desktop and mobile sizes.
 - [x] Save the final web-results refinement checkpoint after deterministic verification.
