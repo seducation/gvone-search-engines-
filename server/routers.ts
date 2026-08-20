@@ -111,6 +111,15 @@ export const appRouter = router({
       webResults: publicProcedure
         .input(z.object({ query: z.string().min(2).max(240) }))
         .mutation(async ({ input }) => ({ results: await searchWeb(input.query) })),
+      visualResults: publicProcedure
+        .input(z.object({ query: z.string().min(2).max(240), messageIndex: z.number().int().min(0).max(100) }))
+        .mutation(async ({ input }) => {
+          try {
+            return { query: input.query, results: await discoverImages(input.query), error: null };
+          } catch {
+            return { query: input.query, results: [], error: "Visual references are temporarily unavailable." };
+          }
+        }),
   }),
 });
 

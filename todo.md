@@ -311,3 +311,13 @@
 - [x] Show an Image discovery button beside Replay on every gvone reply.
 - [x] Provide a clear discovery prompt when a reply has no saved visual matches yet.
 - [x] Verify desktop/mobile reply actions, run tests, and save a checkpoint.
+
+- [x] Replace reply-triggered Image discovery chat messages with a dedicated visual request. — Superseded by the user-selected Web results entry point.
+- [x] Keep discovery progress concise without making the task bar or reply actions feel cluttered. — Superseded by the user-selected Web results entry point.
+- [x] Add a compact completion summary for sources and visual references used. — Superseded by the user-selected Web results entry point.
+- [x] Verify the simplified desktop/mobile discovery flow, run tests, and save a checkpoint. — Superseded by the user-selected Web results entry point.
+
+- [x] Add Image discovery directly inside each response’s Web results area.
+- [x] Use that response’s saved research query for dedicated visual discovery without posting a chat message.
+- [x] Remove the redundant Image discovery action beside Replay and retain concise visual loading feedback.
+- [x] Verify the simplified desktop/mobile Web results workflow, run tests, and save a checkpoint.

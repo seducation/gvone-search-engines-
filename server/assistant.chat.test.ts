@@ -66,6 +66,14 @@ describe("assistant.chat", () => {
     expect(result).toMatchObject({ content: "Here are some visual directions to explore.", visualQuery: "Find visual references for soft studio lighting.", visualResults: [{ title: "Studio lighting reference" }], visualError: null });
   });
 
+  it("discovers visuals directly from saved Web results context without adding a chat turn", async () => {
+    discoverImagesMock.mockResolvedValueOnce([{ title: "Editorial reference", url: "https://example.com/editorial", domain: "example.com", caption: "A related visual direction.", imageUrl: "https://example.com/editorial.jpg" }]);
+    const ctx = { user: null, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] } satisfies TrpcContext;
+    const result = await appRouter.createCaller(ctx).assistant.visualResults({ query: "quiet editorial interiors", messageIndex: 4 });
+    expect(result).toMatchObject({ query: "quiet editorial interiors", results: [{ title: "Editorial reference" }], error: null });
+    expect(discoverImagesMock).toHaveBeenCalledWith("quiet editorial interiors");
+  });
+
   it("passes fed and saved conversation memory as separate reference-only contexts", async () => {
     invokeLLMMock.mockResolvedValueOnce({ choices: [{ message: { content: "I remember that preference." } }] });
     searchWebMock.mockResolvedValueOnce([]);

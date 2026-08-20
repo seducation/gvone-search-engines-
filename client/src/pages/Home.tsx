@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, ChevronDown, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Plus, ScanSearch, Search, Settings, Sparkles, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import "@/lib/web-results-discovery.css";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -10,7 +11,6 @@ import { motionSupported, normalizeMotion } from "@/lib/motion";
 import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskElapsedLabel, getTaskProgressActivity, getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 import { buildVisualBoardReferences } from "@/lib/visualBoard";
-import { buildReplyVisualDiscoveryPrompt } from "@/lib/replyVisualDiscovery";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -319,6 +319,20 @@ export default function Home() {
   const webRetryMutation = trpc.assistant.webResults.useMutation();
   const imageUploadMutation = trpc.assistant.uploadImage.useMutation();
   const projectFileUploadMutation = trpc.assistant.uploadProjectFile.useMutation();
+  const visualDiscoveryMutation = trpc.assistant.visualResults.useMutation({
+    onSuccess: ({ query, results, error }, variables) => {
+      setVisualSets((current) => ({ ...current, [variables.messageIndex]: { query, results, error: error ?? undefined } }));
+      setDiscoveringReplyIndex(null);
+      setActiveVisualIndex(variables.messageIndex);
+      setSourceDrawerOpen(false);
+      setVisualDrawerOpen(true);
+    },
+    onError: (_error, variables) => {
+      setVisualSets((current) => ({ ...current, [variables.messageIndex]: { query: variables.query, results: [], error: "Visual references are temporarily unavailable." } }));
+      setDiscoveringReplyIndex(null);
+      toast.error("I couldn’t find visual references just now. Please try again.");
+    },
+  });
   const chatMutation = trpc.assistant.chat.useMutation({
     onSuccess: ({ content, results, webError, visualResults, visualQuery, visualError }, variables) => {
       setFailedMessages(null);
@@ -365,14 +379,14 @@ export default function Home() {
   }, [messages, chatMutation.isPending]);
 
   useEffect(() => {
-    const isTaskActive = chatMutation.isPending || isProgressPreview;
+    const isTaskActive = chatMutation.isPending || visualDiscoveryMutation.isPending || isProgressPreview;
     if (!isTaskActive) {
       setTaskStageIndex(isProgressPreview ? 2 : 0);
       setTaskProgressOpen(isProgressPreviewExpanded);
       setTaskElapsedSeconds(0);
       return;
     }
-    if (isProgressPreview && !chatMutation.isPending) {
+    if (isProgressPreview && !chatMutation.isPending && !visualDiscoveryMutation.isPending) {
       setTaskStageIndex(2);
       setTaskProgressOpen(isProgressPreviewExpanded);
       setTaskElapsedSeconds(4);
@@ -386,7 +400,7 @@ export default function Home() {
     }, 700);
     const elapsedTimer = window.setInterval(() => setTaskElapsedSeconds((Date.now() - startedAt) / 1000), 250);
     return () => { window.clearInterval(stageTimer); window.clearInterval(elapsedTimer); };
-  }, [chatMutation.isPending, isProgressPreview, isProgressPreviewExpanded]);
+  }, [chatMutation.isPending, isProgressPreview, isProgressPreviewExpanded, visualDiscoveryMutation.isPending]);
 
   const userMessageCount = messages.filter((message) => message.role === "user").length;
   const chatLevel = Math.min(userMessageCount, 4);
@@ -566,6 +580,21 @@ export default function Home() {
     });
   };
 
+  const openWebResultImageDiscovery = (messageIndex: number) => {
+    const sourceSet = responseSources[messageIndex];
+    const visualSet = visualSets[messageIndex];
+    if (visualSet) {
+      setActiveVisualIndex(messageIndex);
+      setSourceDrawerOpen(false);
+      setVisualDrawerOpen(true);
+      return;
+    }
+    if (!sourceSet?.query || visualDiscoveryMutation.isPending) return;
+    setDiscoveringReplyIndex(messageIndex);
+    setTaskCapabilities((current) => ({ ...current, usesVisualDiscovery: true, usesWebResearch: true }));
+    visualDiscoveryMutation.mutate({ query: sourceSet.query, messageIndex });
+  };
+
   const clearCurrentChat = () => {
     setMessages(starterMessages);
     setResponseSources({});
@@ -653,7 +682,7 @@ export default function Home() {
     }
   };
 
-  const sendMessage = (value: string, options?: { forceVisualDiscovery?: boolean }) => {
+  const sendMessage = (value: string) => {
     const trimmed = value.trim();
     if ((!trimmed && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending || projectFileUploadMutation.isPending) return;
     const content = trimmed || "What can you tell me about this image?";
@@ -661,7 +690,7 @@ export default function Home() {
     setMessages(nextMessages);
     setFailedMessages(null);
     setInput("");
-    const discoverVisuals = options?.forceVisualDiscovery ?? (visualDiscoveryMode || Boolean(attachedImage));
+    const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
     const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
     const fedMemory = buildFedMemoryContext(fedMemories, activeSessionId);
     const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
@@ -677,12 +706,6 @@ export default function Home() {
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     sendMessage(input);
-  };
-
-  const startReplyImageDiscovery = (response: string, replyIndex: number) => {
-    if (chatMutation.isPending) return;
-    setDiscoveringReplyIndex(replyIndex);
-    sendMessage(buildReplyVisualDiscoveryPrompt(response), { forceVisualDiscovery: true });
   };
 
   const requestMotionAccess = async () => {
@@ -822,7 +845,7 @@ export default function Home() {
 
       {projectViewOpen && activeProject && <section className="project-workspace-shell" aria-label={`${activeProject.name} project workspace`}><header className="project-workspace-topbar"><div className="project-workspace-breadcrumb"><button type="button" onClick={() => setProjectViewOpen(false)}><ArrowLeft size={15} /> All chats</button><span>/</span><button type="button" onClick={() => { setProjectsOpen(true); setProjectViewOpen(false); }}>All projects</button></div><div className="project-workspace-top-actions"><button type="button" onClick={() => setProjectViewSection("settings")}><Settings size={15} /> Project settings</button><button type="button" onClick={startProjectChat}><MessageSquarePlus size={15} /> New chat</button></div></header><div className="project-workspace-layout"><aside className="project-workspace-sidebar"><button className="project-workspace-identity" type="button" onClick={() => setProjectViewSection("home")}><span className="project-avatar"><FolderKanban size={18} /></span><span><small>PROJECT</small><strong>{activeProject.name}</strong></span></button><nav className="project-workspace-nav" aria-label="Project navigation"><button className={cn(projectViewSection === "home" && "is-active")} type="button" onClick={() => setProjectViewSection("home")}><FolderKanban size={15} /> Home</button><button className={cn(projectViewSection === "chats" && "is-active")} type="button" onClick={() => setProjectViewSection("chats")}><MessageSquarePlus size={15} /> Chats <small>{activeProjectChats.length}</small></button><button className={cn(projectViewSection === "files" && "is-active")} type="button" onClick={() => setProjectViewSection("files")}><FileText size={15} /> Files <small>{activeProject.files.length}</small></button><button className={cn(projectViewSection === "settings" && "is-active")} type="button" onClick={() => setProjectViewSection("settings")}><Settings size={15} /> Settings</button></nav><button className="project-sidebar-new-chat" type="button" onClick={startProjectChat}><MessageSquarePlus size={15} /> New chat</button><div className="project-sidebar-chats"><label><Search size={14} /><input value={projectChatSearch} onChange={(event) => setProjectChatSearch(event.target.value)} placeholder="Search chats" aria-label="Search project chats" /></label><span>PROJECT CHATS</span>{filteredProjectChats.map((conversation) => <button className={cn(conversation.id === activeSessionId && "is-active")} type="button" onClick={() => openConversation(conversation)} key={conversation.id}><strong>{conversation.title}</strong><small>{new Date(conversation.updatedAt).toLocaleDateString()}</small></button>)}{!filteredProjectChats.length && <p>{activeProjectChats.length ? "No chats match your search." : "No chats yet."}</p>}</div></aside><main className="project-workspace-main">{projectViewSection === "home" && <section className="project-home"><div className="project-home-hero"><span className="project-avatar project-avatar-large"><FolderKanban size={24} /></span><div><p>PROJECT HOME</p><h1>{activeProject.name}</h1><span>{activeProject.description || "A dedicated workspace for shared chats, context, instructions, and files."}</span></div><button type="button" onClick={() => setProjectViewSection("settings")} aria-label="Edit project details"><MoreHorizontal size={18} /></button></div><div className="project-home-actions"><button type="button" onClick={startProjectChat}><MessageSquarePlus size={17} /><span><strong>New chat</strong><small>Start with this project’s context</small></span></button><button type="button" onClick={() => setProjectViewSection("files")}><FilePlus2 size={17} /><span><strong>Add file</strong><small>{activeProject.files.length ? `${activeProject.files.length} files available` : "Keep shared material together"}</small></span></button><button type="button" onClick={() => setProjectViewSection("settings")}><Settings size={17} /><span><strong>Instructions</strong><small>{activeProject.instructions ? "Active for every project chat" : "Set shared working guidance"}</small></span></button></div><div className="project-home-grid"><section><div className="project-section-heading"><div><span>RECENT CHATS</span><h2>Continue your work</h2></div><button type="button" onClick={() => setProjectViewSection("chats")}>View all</button></div><div className="project-recent-chats">{activeProjectChats.slice(0, 4).map((conversation) => <button type="button" onClick={() => openConversation(conversation)} key={conversation.id}><MessageSquarePlus size={15} /><span><strong>{conversation.title}</strong><small>{conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "No visitor message yet"}</small></span><em>{new Date(conversation.updatedAt).toLocaleDateString()}</em></button>)}{!activeProjectChats.length && <div className="project-home-empty"><p>No project chats yet.</p><button type="button" onClick={startProjectChat}>Create the first chat</button></div>}</div></section><aside className="project-context-summary"><span>SHARED CONTEXT</span><strong>{activeProject.instructions ? "Project instructions are active" : "No project instructions yet"}</strong><p>{activeProject.instructions || "Add shared guidance so gvone carries the same goals and working style into every chat in this project."}</p><small><FileText size={12} /> {activeProject.files.length} shared files · {activeProjectChats.length} project chats</small></aside></div></section>}{projectViewSection === "chats" && <section className="project-view-section"><div className="project-section-heading"><div><span>PROJECT CHATS</span><h1>{activeProject.name}</h1></div><button type="button" onClick={startProjectChat}><MessageSquarePlus size={15} /> New chat</button></div><div className="project-full-chat-list">{filteredProjectChats.map((conversation) => <button type="button" onClick={() => openConversation(conversation)} key={conversation.id}><MessageSquarePlus size={16} /><span><strong>{conversation.title}</strong><small>{conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "No visitor message yet"}</small></span><em>{new Date(conversation.updatedAt).toLocaleDateString()}</em></button>)}{!filteredProjectChats.length && <div className="project-home-empty"><p>{activeProjectChats.length ? "No chats match your search." : "No chats in this project yet."}</p><button type="button" onClick={startProjectChat}>New project chat</button></div>}</div></section>}{projectViewSection === "files" && <section className="project-view-section"><div className="project-section-heading"><div><span>PROJECT FILES</span><h1>Shared project files</h1></div><input ref={projectFileInputRef} type="file" className="project-file-input" accept=".pdf,.txt,.md,.csv,.json,.docx,.xlsx,image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProjectFile(file); event.currentTarget.value = ""; }} /><button type="button" onClick={() => projectFileInputRef.current?.click()} disabled={projectFileUploadMutation.isPending}>{projectFileUploadMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <FilePlus2 size={15} />} Add file</button></div><div className="project-files-view">{activeProject.files.map((file) => <article key={file.key}><a href={file.url} target="_blank" rel="noreferrer"><FileText size={17} /><span><strong>{file.name}</strong><small>{file.mimeType.split("/").at(-1)} · {Math.max(1, Math.round(file.size / 1024))} KB · added {new Date(file.uploadedAt).toLocaleDateString()}</small></span></a><button type="button" onClick={() => updateProject(activeProject.id, { files: activeProject.files.filter((item) => item.key !== file.key) })} aria-label={`Remove ${file.name}`}><Trash2 size={14} /></button></article>)}{!activeProject.files.length && <div className="project-home-empty"><FileText size={24} /><p>No files have been added to this project.</p><button type="button" onClick={() => projectFileInputRef.current?.click()}>Add a file</button></div>}</div></section>}{projectViewSection === "settings" && <section className="project-view-section project-settings-view"><div className="project-section-heading"><div><span>PROJECT SETTINGS</span><h1>Shared workspace setup</h1></div></div><label><span>Project name</span><input value={activeProject.name} onChange={(event) => updateProject(activeProject.id, { name: event.target.value.slice(0, 70) })} /></label><label><span>Description</span><textarea value={activeProject.description} onChange={(event) => updateProject(activeProject.id, { description: event.target.value.slice(0, 240) })} placeholder="Explain what this project is for." rows={3} /><small>{activeProject.description.length}/240</small></label><label><span>Project instructions</span><textarea value={activeProject.instructions} onChange={(event) => updateProject(activeProject.id, { instructions: event.target.value.slice(0, 1800) })} placeholder="Set tone, goals, constraints, and working preferences for every chat in this project." rows={6} /><small>Global settings → Project instructions → Chat context → Current message</small></label><div className="project-settings-context"><Sparkles size={16} /><div><strong>Shared project context</strong><small>gvone can use this project’s instructions, files, and related chats when you start or continue a project conversation.</small></div></div><div className="project-danger"><div><strong>Delete project</strong><small>Its chats will move back to Personal chats.</small></div><button type="button" onClick={() => deleteProject(activeProject.id)}>Delete project</button></div></section>}</main></div></section>}
 
-      {(chatMutation.isPending || isProgressPreview) && <section className={cn("header-task-progress", taskProgressOpen && "is-expanded")} aria-label="gvone task progress"><button className="header-task-summary" type="button" onClick={() => setTaskProgressOpen((value) => !value)} aria-expanded={taskProgressOpen}><span className={cn("task-progress-orb", `is-${taskActivity.kind}`)} /><span><b>{taskActivity.label}</b><small>{taskActivity.detail}</small></span><span className="header-task-meter"><i style={{ width: `${getTaskProgressPercent(taskStageIndex)}%` }} /></span><span className="task-elapsed">{taskElapsedLabel}</span><ChevronDown size={15} /></button>{taskProgressOpen && <div className="header-task-details"><div className="task-progress-live"><span className={cn(`is-${taskActivity.kind}`)}><i /> {taskActivity.kind === "visual" ? "visual activity" : taskActivity.kind === "research" ? "research activity" : taskActivity.kind === "context" ? "context activity" : "response activity"}</span><small>{taskElapsedLabel}</small></div><p>{taskActivity.detail}</p><div className="header-task-steps">{TASK_PROGRESS_STAGES.map((stage, index) => <div className={cn(index < taskStageIndex && "is-complete", index === taskStageIndex && "is-current")} key={stage}><i /> <span>{stage}</span><small>{index < taskStageIndex ? "done" : index === taskStageIndex ? "active" : "queued"}</small></div>)}</div><div className="task-progress-signals"><span className={cn(taskCapabilities.usesProject && "is-on")}><FolderKanban size={12} /> Project context</span><span className={cn(taskCapabilities.usesWebResearch && "is-on")}><Globe2 size={12} /> Web research</span><span className={cn(taskCapabilities.usesVisualDiscovery && "is-on")}><ScanSearch size={12} /> Image discovery</span></div></div>}</section>}
+      {(chatMutation.isPending || visualDiscoveryMutation.isPending || isProgressPreview) && <section className={cn("header-task-progress", taskProgressOpen && "is-expanded")} aria-label="gvone task progress"><button className="header-task-summary" type="button" onClick={() => setTaskProgressOpen((value) => !value)} aria-expanded={taskProgressOpen}><span className={cn("task-progress-orb", `is-${taskActivity.kind}`)} /><span><b>{taskActivity.label}</b><small>{taskActivity.detail}</small></span><span className="header-task-meter"><i style={{ width: `${getTaskProgressPercent(taskStageIndex)}%` }} /></span><span className="task-elapsed">{taskElapsedLabel}</span><ChevronDown size={15} /></button>{taskProgressOpen && <div className="header-task-details"><div className="task-progress-live"><span className={cn(`is-${taskActivity.kind}`)}><i /> {taskActivity.kind === "visual" ? "visual activity" : taskActivity.kind === "research" ? "research activity" : taskActivity.kind === "context" ? "context activity" : "response activity"}</span><small>{taskElapsedLabel}</small></div><p>{taskActivity.detail}</p><div className="header-task-steps">{TASK_PROGRESS_STAGES.map((stage, index) => <div className={cn(index < taskStageIndex && "is-complete", index === taskStageIndex && "is-current")} key={stage}><i /> <span>{stage}</span><small>{index < taskStageIndex ? "done" : index === taskStageIndex ? "active" : "queued"}</small></div>)}</div><div className="task-progress-signals"><span className={cn(taskCapabilities.usesProject && "is-on")}><FolderKanban size={12} /> Project context</span><span className={cn(taskCapabilities.usesWebResearch && "is-on")}><Globe2 size={12} /> Web research</span><span className={cn(taskCapabilities.usesVisualDiscovery && "is-on")}><ScanSearch size={12} /> Image discovery</span></div></div>}</section>}
 
       {projectViewOpen && activeProject && <button className="project-studios-entry" type="button" onClick={() => setProjectStudiosOpen(true)}><Sparkles size={15} /> Studios <span>{activeProject.studios.length}</span></button>}
       {projectViewOpen && activeProject && <button className="project-visual-board-entry" type="button" onClick={() => setVisualBoardOpen(true)}><ScanSearch size={15} /> Visual board <span>{activeProject.visualReferences.length}</span></button>}
@@ -888,7 +911,7 @@ export default function Home() {
         <aside className="source-results-drawer" aria-label="Web results for this response">
           <div className="drawer-heading"><div><span className="drawer-kicker">gvone sources</span><h2>Web results</h2></div><button className="drawer-close" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results"><X size={18} /></button></div>
           <section className="web-results" aria-label="Website sources">
-            <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {activeSourceSet.query}</strong></div><span className="web-results-info">saved sources</span></div>
+            <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {activeSourceSet.query}</strong></div><div className="web-results-toolbar"><button type="button" className="web-results-discovery" onClick={() => openWebResultImageDiscovery(activeSourceIndex ?? -1)} disabled={visualDiscoveryMutation.isPending} aria-busy={discoveringReplyIndex === activeSourceIndex}>{discoveringReplyIndex === activeSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}{visualSets[activeSourceIndex ?? -1] ? "View images" : discoveringReplyIndex === activeSourceIndex ? "Finding images" : "Image discovery"}</button><small>{activeSourceSet.results.length} sources used</small></div></div>
             {webRetryMutation.isPending && <div className="web-results-loading"><span /><span /><span /> Refreshing websites…</div>}
             {!webRetryMutation.isPending && activeSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
               <img src={result.favicon} alt="" className="web-result-favicon" />
@@ -906,7 +929,7 @@ export default function Home() {
         <aside className="source-results-drawer visual-results-drawer" aria-label="Visual matches for this response">
           <div className="drawer-heading"><div><span className="drawer-kicker">gvone vision</span><h2>Visual matches</h2></div><button className="drawer-close" type="button" onClick={() => setVisualDrawerOpen(false)} aria-label="Close visual matches"><X size={18} /></button></div>
           <section className="visual-results" aria-label="Related visual references">
-            <div className="visual-results-heading"><div><span><ScanSearch size={13} /> image discovery</span><strong>Related to: {activeVisualSet.query}</strong></div><div className="visual-results-toolbar"><button type="button" onClick={() => setVisualBoardOpen(true)}><Sparkles size={12} /> Visual board</button><small>{activeProject ? `${activeProject.visualReferences.length} saved` : "current matches"}</small></div></div>
+            <div className="visual-results-heading"><div><span><ScanSearch size={13} /> image discovery</span><strong>Related to: {activeVisualSet.query}</strong></div><div className="visual-results-toolbar"><button type="button" onClick={() => setVisualBoardOpen(true)}><Sparkles size={12} /> Visual board</button><small>{activeVisualSet.results.length ? `${activeVisualSet.results.length} references from Web research` : activeProject ? `${activeProject.visualReferences.length} saved` : "current matches"}</small></div></div>
             <div className="visual-result-grid">{activeVisualSet.results.map((result) => { const isSaved = Boolean(activeProject?.visualReferences.some((reference) => reference.url === result.url)); return <div className="visual-result-save-wrap" key={result.url}><a className="visual-result-card" href={result.url} target="_blank" rel="noreferrer"><img src={result.imageUrl} alt="" /><span><b>{result.title}</b><small>{result.domain}</small><em>{result.caption}</em></span><ExternalLink size={13} /></a><button type="button" className="visual-save-button" onClick={() => saveVisualReference(result)} disabled={isSaved}>{isSaved ? "Saved to Project" : "Save to Project"}</button></div>; })}</div>
             {activeVisualSet.error && <div className="web-results-error">{activeVisualSet.error}</div>}
             {!activeVisualSet.error && !activeVisualSet.results.length && <div className="web-results-error">No related visual references were found.</div>}
@@ -963,7 +986,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}<button type="button" className={cn("visual-results-trigger", visualDrawerOpen && activeVisualIndex === index && "is-active", discoveringReplyIndex === index && "is-loading")} onClick={() => { const currentVisualSet = visualSets[index]; if (!currentVisualSet) { startReplyImageDiscovery(message.content, index); return; } if (visualDrawerOpen && activeVisualIndex === index) { setVisualDrawerOpen(false); } else { setActiveVisualIndex(index); setVisualDrawerOpen(true); } }} disabled={chatMutation.isPending && !visualSets[index]} aria-busy={discoveringReplyIndex === index} aria-pressed={Boolean(visualSets[index]) && visualDrawerOpen && activeVisualIndex === index} aria-label={visualSets[index] ? "Open Image discovery" : "Discover images for this gvone response"}>{discoveringReplyIndex === index ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />} {visualSets[index] ? visualDrawerOpen && activeVisualIndex === index ? "Hide discovery" : "Image discovery" : discoveringReplyIndex === index ? "Finding images" : "Image discovery"}{visualSets[index] && <span>{visualSets[index].results.length || "!"}</span>}</button></div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
                   </div>
                 </div>
               ))}
@@ -982,7 +1005,7 @@ export default function Home() {
                 {latestVisualSet.results.length > 3 && <button className="web-results-more" type="button" onClick={() => { setActiveVisualIndex(latestSourceIndex); setVisualDrawerOpen(true); }}>Explore all visual matches <ChevronDown size={14} /></button>}
               </section>}
               {latestSourceSet && <section className="web-results latest-web-results" aria-label="Latest web results">
-                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><span className="web-results-info">latest reply</span></div>
+                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><div className="web-results-toolbar"><button type="button" className="web-results-discovery" onClick={() => openWebResultImageDiscovery(latestSourceIndex ?? -1)} disabled={visualDiscoveryMutation.isPending} aria-busy={discoveringReplyIndex === latestSourceIndex}>{discoveringReplyIndex === latestSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}{latestVisualSet ? "View images" : discoveringReplyIndex === latestSourceIndex ? "Finding images" : "Image discovery"}</button><small>{latestSourceSet.results.length} sources used</small></div></div>
                 {latestSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
                   <img src={result.favicon} alt="" className="web-result-favicon" />
                   <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p></div>
