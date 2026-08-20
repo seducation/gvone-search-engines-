@@ -273,3 +273,8 @@
 - [x] Keep the hamburger drawer limited to high-level navigation instead of mixing project details with chats.
 - [x] Show only the selected project’s chat list, with compact project controls available separately.
 - [x] Verify desktop/mobile project-entry flow, run tests, and save a checkpoint.
+
+- [x] Review the provided reference and identify why the current Projects flow still feels confusing.
+- [x] Reduce Projects to one clear navigation path without duplicate project entry points or competing panels.
+- [x] Simplify project management controls so chats remain the primary focus.
+- [x] Verify the refined desktop/mobile experience, run tests, and save a checkpoint.
