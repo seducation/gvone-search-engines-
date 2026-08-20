@@ -278,3 +278,7 @@
 - [x] Reduce Projects to one clear navigation path without duplicate project entry points or competing panels.
 - [x] Simplify project management controls so chats remain the primary focus.
 - [x] Verify the refined desktop/mobile experience, run tests, and save a checkpoint.
+
+- [x] Remove copy, share, like, and dislike controls from Web Results source cards.
+- [x] Keep source titles and direct result links as the primary Web Results interaction.
+- [x] Verify the simplified source-card layout, run tests, and save a checkpoint.

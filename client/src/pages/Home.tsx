@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, ChevronDown, Copy, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Plus, ScanSearch, Search, Settings, Share2, Sparkles, ThumbsDown, ThumbsUp, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, ChevronDown, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Plus, ScanSearch, Search, Settings, Sparkles, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -132,6 +132,7 @@ export default function Home() {
   const progressPreview = new URLSearchParams(window.location.search).get("preview");
   const isProgressPreview = progressPreview === "progress" || progressPreview === "progress-compact";
   const isProgressPreviewExpanded = progressPreview === "progress";
+  const isWebResultsPreview = progressPreview === "web-results";
   const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
   const feedMemoryPreviewScope: FedMemory["scope"] = progressPreview === "feed-memory-chat" ? "chat" : "global";
   const isProjectEntryPreview = progressPreview === "project-view";
@@ -167,6 +168,7 @@ export default function Home() {
   });
   const [input, setInput] = useState("");
   const [responseSources, setResponseSources] = useState<Record<number, ChatHistorySourceSet>>(() => {
+    if (isWebResultsPreview) return { 0: { query: "thoughtful research methods", results: [{ title: "Research Methods: A Practical Guide", url: "https://example.com/research-methods", domain: "example.com", snippet: "A concise reference on structuring practical research and evaluating source quality.", favicon: "https://example.com/favicon.ico" }, { title: "Evidence and Inquiry", url: "https://example.org/evidence", domain: "example.org", snippet: "A helpful overview of assessing evidence, assumptions, and research questions.", favicon: "https://example.org/favicon.ico" }] } };
     if (new URLSearchParams(window.location.search).get("preview")) return {};
     try {
       const activeId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
@@ -182,8 +184,8 @@ export default function Home() {
       return readSavedConversations().find((conversation) => conversation.id === activeId)?.visualSets ?? {};
     } catch { return {}; }
   });
-  const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
-  const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(null);
+  const [sourceDrawerOpen, setSourceDrawerOpen] = useState(isWebResultsPreview);
+  const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(() => isWebResultsPreview ? 0 : null);
   const [visualDrawerOpen, setVisualDrawerOpen] = useState(false);
   const [activeVisualIndex, setActiveVisualIndex] = useState<number | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
@@ -781,7 +783,7 @@ export default function Home() {
             {webRetryMutation.isPending && <div className="web-results-loading"><span /><span /><span /> Refreshing websites…</div>}
             {!webRetryMutation.isPending && activeSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
               <img src={result.favicon} alt="" className="web-result-favicon" />
-              <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p><div className="web-result-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); }}><Copy size={12} /> copy</button><button type="button" onClick={() => { if (navigator.share) void navigator.share({ title: result.title, url: result.url }); else { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); } }}><Share2 size={12} /> share</button><button type="button" aria-label="Like source"><ThumbsUp size={12} /></button><button type="button" aria-label="Dislike source"><ThumbsDown size={12} /></button></div></div>
+              <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p></div>
             </article>)}
             {!webRetryMutation.isPending && activeSourceSet.error && <div className="web-results-error">{activeSourceSet.error}<button type="button" onClick={() => retryWebResults(activeSourceIndex ?? -1)}>Retry sources</button></div>}
             {!webRetryMutation.isPending && !activeSourceSet.error && !activeSourceSet.results.length && <div className="web-results-error">No source pages were found for this query.</div>}
@@ -872,7 +874,7 @@ export default function Home() {
                 <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><span className="web-results-info">latest reply</span></div>
                 {latestSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
                   <img src={result.favicon} alt="" className="web-result-favicon" />
-                  <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p><div className="web-result-actions"><button type="button" onClick={() => { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); }}><Copy size={12} /> copy</button><button type="button" onClick={() => { if (navigator.share) void navigator.share({ title: result.title, url: result.url }); else { void navigator.clipboard?.writeText(result.url); toast.success("Link copied"); } }}><Share2 size={12} /> share</button><button type="button" aria-label="Like source"><ThumbsUp size={12} /></button><button type="button" aria-label="Dislike source"><ThumbsDown size={12} /></button></div></div>
+                  <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p></div>
                 </article>)}
                 {latestSourceSet.error && <div className="web-results-error">{latestSourceSet.error}<button type="button" onClick={() => retryWebResults(latestSourceIndex ?? -1)}>Retry sources</button></div>}
                 {!latestSourceSet.error && !latestSourceSet.results.length && <div className="web-results-error">No source pages were found for this query.</div>}
