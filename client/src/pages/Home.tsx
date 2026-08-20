@@ -10,6 +10,7 @@ import { motionSupported, normalizeMotion } from "@/lib/motion";
 import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskElapsedLabel, getTaskProgressActivity, getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 import { buildVisualBoardReferences } from "@/lib/visualBoard";
+import { buildReplyVisualDiscoveryPrompt } from "@/lib/replyVisualDiscovery";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -279,6 +280,7 @@ export default function Home() {
   const [taskProgressOpen, setTaskProgressOpen] = useState(isProgressPreviewExpanded);
   const [taskElapsedSeconds, setTaskElapsedSeconds] = useState(isProgressPreview ? 4 : 0);
   const [taskCapabilities, setTaskCapabilities] = useState({ usesProject: progressPreview === "progress-rich", usesVisualDiscovery: progressPreview === "progress-rich", usesWebResearch: true });
+  const [discoveringReplyIndex, setDiscoveringReplyIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -325,10 +327,12 @@ export default function Home() {
       if (results.length || webError) setResponseSources((current) => ({ ...current, [assistantIndex]: { query, results: results ?? [], error: webError ?? undefined } }));
       if (visualResults.length || visualError) setVisualSets((current) => ({ ...current, [assistantIndex]: { query: visualQuery ?? query, results: visualResults, error: visualError ?? undefined } }));
       setMessages((current) => [...current, { role: "assistant", content }]);
+      setDiscoveringReplyIndex(null);
       if (autoSpeak) speakText(content);
     },
     onError: (_error, variables) => {
       setFailedMessages(variables.messages);
+      setDiscoveringReplyIndex(null);
       toast.error("I couldn’t reach the conversation just now. Please try again.");
     },
   });
@@ -649,7 +653,7 @@ export default function Home() {
     }
   };
 
-  const sendMessage = (value: string) => {
+  const sendMessage = (value: string, options?: { forceVisualDiscovery?: boolean }) => {
     const trimmed = value.trim();
     if ((!trimmed && !attachedImage) || chatMutation.isPending || imageUploadMutation.isPending || projectFileUploadMutation.isPending) return;
     const content = trimmed || "What can you tell me about this image?";
@@ -657,7 +661,7 @@ export default function Home() {
     setMessages(nextMessages);
     setFailedMessages(null);
     setInput("");
-    const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
+    const discoverVisuals = options?.forceVisualDiscovery ?? (visualDiscoveryMode || Boolean(attachedImage));
     const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
     const fedMemory = buildFedMemoryContext(fedMemories, activeSessionId);
     const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
@@ -673,6 +677,12 @@ export default function Home() {
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     sendMessage(input);
+  };
+
+  const startReplyImageDiscovery = (response: string, replyIndex: number) => {
+    if (chatMutation.isPending) return;
+    setDiscoveringReplyIndex(replyIndex);
+    sendMessage(buildReplyVisualDiscoveryPrompt(response), { forceVisualDiscovery: true });
   };
 
   const requestMotionAccess = async () => {
@@ -953,7 +963,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}{visualSets[index] && <button type="button" className={cn("visual-results-trigger", visualDrawerOpen && activeVisualIndex === index && "is-active")} onClick={() => { if (visualDrawerOpen && activeVisualIndex === index) { setVisualDrawerOpen(false); } else { setActiveVisualIndex(index); setVisualDrawerOpen(true); } }} aria-pressed={visualDrawerOpen && activeVisualIndex === index}><ScanSearch size={12} /> {visualDrawerOpen && activeVisualIndex === index ? "Hide discovery" : "Image discovery"} <span>{visualSets[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}<button type="button" className={cn("visual-results-trigger", visualDrawerOpen && activeVisualIndex === index && "is-active", discoveringReplyIndex === index && "is-loading")} onClick={() => { const currentVisualSet = visualSets[index]; if (!currentVisualSet) { startReplyImageDiscovery(message.content, index); return; } if (visualDrawerOpen && activeVisualIndex === index) { setVisualDrawerOpen(false); } else { setActiveVisualIndex(index); setVisualDrawerOpen(true); } }} disabled={chatMutation.isPending && !visualSets[index]} aria-busy={discoveringReplyIndex === index} aria-pressed={Boolean(visualSets[index]) && visualDrawerOpen && activeVisualIndex === index} aria-label={visualSets[index] ? "Open Image discovery" : "Discover images for this gvone response"}>{discoveringReplyIndex === index ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />} {visualSets[index] ? visualDrawerOpen && activeVisualIndex === index ? "Hide discovery" : "Image discovery" : discoveringReplyIndex === index ? "Finding images" : "Image discovery"}{visualSets[index] && <span>{visualSets[index].results.length || "!"}</span>}</button></div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
                   </div>
                 </div>
               ))}

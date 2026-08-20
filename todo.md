@@ -307,3 +307,7 @@
 - [x] Move Studios into the Project sidebar navigation beside Home, Chats, Files, and Settings.
 - [x] Remove the floating bottom Studios control from the Project workspace.
 - [x] Verify desktop/mobile Project navigation, run tests, and save a checkpoint.
+
+- [x] Show an Image discovery button beside Replay on every gvone reply.
+- [x] Provide a clear discovery prompt when a reply has no saved visual matches yet.
+- [x] Verify desktop/mobile reply actions, run tests, and save a checkpoint.
