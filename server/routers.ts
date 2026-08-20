@@ -5,6 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { searchWeb } from "./webSearch";
 import { discoverImages } from "./imageDiscovery";
+import { discoverVideos } from "./videoDiscovery";
 import { analyzeImage } from "./visualAssistant";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { publicProcedure, router } from "./_core/trpc";
@@ -118,6 +119,15 @@ export const appRouter = router({
             return { query: input.query, results: await discoverImages(input.query), error: null };
           } catch {
             return { query: input.query, results: [], error: "Visual references are temporarily unavailable." };
+          }
+        }),
+      videoResults: publicProcedure
+        .input(z.object({ query: z.string().min(2).max(240), messageIndex: z.number().int().min(0).max(100) }))
+        .mutation(async ({ input }) => {
+          try {
+            return { query: input.query, results: await discoverVideos(input.query), error: null };
+          } catch {
+            return { query: input.query, results: [], error: "Video references are temporarily unavailable." };
           }
         }),
   }),

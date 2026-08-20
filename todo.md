@@ -333,3 +333,9 @@
 - [x] Add an accessible thread panel with direct navigation and an obvious active-thread state.
 - [x] Keep parent and thread message histories clearly separate so unrelated replies do not appear mixed.
 - [x] Add focused tests, verify desktop/mobile thread navigation, and save a checkpoint.
+
+- [x] Add a persistent per-response video-discovery result model.
+- [x] Retrieve focused video references from the saved Web results research query without creating a chat message.
+- [x] Add a Video discovery action inside Web results and a focused video-results drawer.
+- [x] Keep Video discovery loading and completion feedback concise alongside Image discovery.
+- [x] Add focused tests, verify desktop/mobile video discovery, and save a checkpoint.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, ChevronDown, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Plus, ScanSearch, Search, Settings, Sparkles, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, ChevronDown, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Play, Plus, ScanSearch, Search, Settings, Sparkles, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import "@/lib/web-results-discovery.css";
 import "@/lib/reply-threads.css";
 import { Streamdown } from "streamdown";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationThreads, getConversationTitle, getThreadRootId, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryThread, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationThreads, getConversationTitle, getThreadRootId, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryThread, type ChatHistoryVideoSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskElapsedLabel, getTaskProgressActivity, getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 import { buildVisualBoardReferences } from "@/lib/visualBoard";
 
@@ -35,6 +35,7 @@ type SavedConversation = {
   studioId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
+  videoSets?: Record<number, ChatHistoryVideoSet>;
   thread?: ChatHistoryThread;
   updatedAt: number;
 };
@@ -159,7 +160,8 @@ export default function Home() {
   const progressPreview = new URLSearchParams(window.location.search).get("preview");
   const isProgressPreview = progressPreview === "progress" || progressPreview === "progress-compact" || progressPreview === "progress-rich";
   const isProgressPreviewExpanded = progressPreview === "progress" || progressPreview === "progress-rich";
-  const isWebResultsPreview = progressPreview === "web-results";
+  const isVideoDiscoveryPreview = progressPreview === "video-discovery";
+  const isWebResultsPreview = progressPreview === "web-results" || isVideoDiscoveryPreview;
   const isVisualBoardPreview = progressPreview === "visual-board";
   const isImageDiscoveryPreview = progressPreview === "image-discovery" || isVisualBoardPreview;
   const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
@@ -217,10 +219,20 @@ export default function Home() {
       return readSavedConversations().find((conversation) => conversation.id === activeId)?.visualSets ?? {};
     } catch { return {}; }
   });
+  const [videoSets, setVideoSets] = useState<Record<number, ChatHistoryVideoSet>>(() => {
+    if (isVideoDiscoveryPreview) return { 0: { query: "calm editorial motion design", results: [{ title: "Editorial motion design references", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", domain: "youtube.com", caption: "A concise visual reference for measured pacing, typography, and material detail.", thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", provider: "YouTube" }, { title: "Material and light motion studies", url: "https://vimeo.com/1084537", domain: "vimeo.com", caption: "A moving-image study focused on warm texture, light, and quiet transitions.", thumbnailUrl: "https://www.google.com/s2/favicons?domain=vimeo.com&sz=128", provider: "Vimeo" }] } };
+    if (new URLSearchParams(window.location.search).get("preview")) return {};
+    try {
+      const activeId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+      return readSavedConversations().find((conversation) => conversation.id === activeId)?.videoSets ?? {};
+    } catch { return {}; }
+  });
   const [sourceDrawerOpen, setSourceDrawerOpen] = useState(isWebResultsPreview);
   const [activeSourceIndex, setActiveSourceIndex] = useState<number | null>(() => isWebResultsPreview ? 0 : null);
   const [visualDrawerOpen, setVisualDrawerOpen] = useState(false);
   const [activeVisualIndex, setActiveVisualIndex] = useState<number | null>(() => isVisualBoardPreview ? 0 : null);
+  const [videoDrawerOpen, setVideoDrawerOpen] = useState(isVideoDiscoveryPreview);
+  const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(() => isVideoDiscoveryPreview ? 0 : null);
   const [visualBoardOpen, setVisualBoardOpen] = useState(isVisualBoardPreview);
   const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
   const [visualDiscoveryMode, setVisualDiscoveryMode] = useState(false);
@@ -288,6 +300,7 @@ export default function Home() {
   const [taskElapsedSeconds, setTaskElapsedSeconds] = useState(isProgressPreview ? 4 : 0);
   const [taskCapabilities, setTaskCapabilities] = useState({ usesProject: progressPreview === "progress-rich", usesVisualDiscovery: progressPreview === "progress-rich", usesWebResearch: true });
   const [discoveringReplyIndex, setDiscoveringReplyIndex] = useState<number | null>(null);
+  const [discoveringVideoReplyIndex, setDiscoveringVideoReplyIndex] = useState<number | null>(null);
   const [threadPanelOpen, setThreadPanelOpen] = useState(isThreadPreview);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
@@ -341,6 +354,20 @@ export default function Home() {
       toast.error("I couldn’t find visual references just now. Please try again.");
     },
   });
+  const videoDiscoveryMutation = trpc.assistant.videoResults.useMutation({
+    onSuccess: ({ query, results, error }, variables) => {
+      setVideoSets((current) => ({ ...current, [variables.messageIndex]: { query, results, error: error ?? undefined } }));
+      setDiscoveringVideoReplyIndex(null);
+      setActiveVideoIndex(variables.messageIndex);
+      setSourceDrawerOpen(false);
+      setVideoDrawerOpen(true);
+    },
+    onError: (_error, variables) => {
+      setVideoSets((current) => ({ ...current, [variables.messageIndex]: { query: variables.query, results: [], error: "Video references are temporarily unavailable." } }));
+      setDiscoveringVideoReplyIndex(null);
+      toast.error("I couldn’t find video references just now. Please try again.");
+    },
+  });
   const chatMutation = trpc.assistant.chat.useMutation({
     onSuccess: ({ content, results, webError, visualResults, visualQuery, visualError }, variables) => {
       setFailedMessages(null);
@@ -387,14 +414,14 @@ export default function Home() {
   }, [messages, chatMutation.isPending]);
 
   useEffect(() => {
-    const isTaskActive = chatMutation.isPending || visualDiscoveryMutation.isPending || isProgressPreview;
+    const isTaskActive = chatMutation.isPending || visualDiscoveryMutation.isPending || videoDiscoveryMutation.isPending || isProgressPreview;
     if (!isTaskActive) {
       setTaskStageIndex(isProgressPreview ? 2 : 0);
       setTaskProgressOpen(isProgressPreviewExpanded);
       setTaskElapsedSeconds(0);
       return;
     }
-    if (isProgressPreview && !chatMutation.isPending && !visualDiscoveryMutation.isPending) {
+    if (isProgressPreview && !chatMutation.isPending && !visualDiscoveryMutation.isPending && !videoDiscoveryMutation.isPending) {
       setTaskStageIndex(2);
       setTaskProgressOpen(isProgressPreviewExpanded);
       setTaskElapsedSeconds(4);
@@ -408,7 +435,7 @@ export default function Home() {
     }, 700);
     const elapsedTimer = window.setInterval(() => setTaskElapsedSeconds((Date.now() - startedAt) / 1000), 250);
     return () => { window.clearInterval(stageTimer); window.clearInterval(elapsedTimer); };
-  }, [chatMutation.isPending, isProgressPreview, isProgressPreviewExpanded, visualDiscoveryMutation.isPending]);
+  }, [chatMutation.isPending, isProgressPreview, isProgressPreviewExpanded, videoDiscoveryMutation.isPending, visualDiscoveryMutation.isPending]);
 
   const userMessageCount = messages.filter((message) => message.role === "user").length;
   const chatLevel = Math.min(userMessageCount, 4);
@@ -437,9 +464,9 @@ export default function Home() {
     const title = getConversationTitle(messages);
     setConversations((current) => {
       const existing = current.find((conversation) => conversation.id === activeSessionId);
-      return upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, studioId: activeStudioId ?? undefined, sourceSets: responseSources, visualSets, thread: existing?.thread, updatedAt: Date.now() });
+      return upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, studioId: activeStudioId ?? undefined, sourceSets: responseSources, visualSets, videoSets, thread: existing?.thread, updatedAt: Date.now() });
     });
-  }, [activeProjectId, activeSessionId, activeStudioId, messages, responseSources, visualSets]);
+  }, [activeProjectId, activeSessionId, activeStudioId, messages, responseSources, videoSets, visualSets]);
 
   const startNewChat = () => {
     const nextId = safeId();
@@ -447,10 +474,13 @@ export default function Home() {
     setMessages(starterMessages);
     setResponseSources({});
     setVisualSets({});
+    setVideoSets({});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
     setActiveVisualIndex(null);
     setVisualDrawerOpen(false);
+    setActiveVideoIndex(null);
+    setVideoDrawerOpen(false);
     setAttachedImage(null);
     setInput("");
     setFailedMessages(null);
@@ -466,10 +496,13 @@ export default function Home() {
     setMessages(conversation.messages);
     setResponseSources(conversation.sourceSets ?? {});
     setVisualSets(conversation.visualSets ?? {});
+    setVideoSets(conversation.videoSets ?? {});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
     setActiveVisualIndex(null);
     setVisualDrawerOpen(false);
+    setActiveVideoIndex(null);
+    setVideoDrawerOpen(false);
     setAttachedImage(null);
     setInput("");
     setFailedMessages(null);
@@ -491,6 +524,7 @@ export default function Home() {
       studioId: activeStudioId ?? undefined,
       sourceSets: sliceReplySets(responseSources, replyIndex),
       visualSets: sliceReplySets(visualSets, replyIndex),
+      videoSets: sliceReplySets(videoSets, replyIndex),
       thread: { parentConversationId: activeSessionId, rootConversationId: getThreadRootId(conversations, activeSessionId), parentMessageIndex: replyIndex, anchorContent: anchor.content, contextMessages: threadContextMessages, createdAt: Date.now() },
       updatedAt: Date.now(),
     };
@@ -503,6 +537,7 @@ export default function Home() {
         studioId: activeStudioId ?? undefined,
         sourceSets: responseSources,
         visualSets,
+        videoSets,
         updatedAt: Date.now(),
       };
       return upsertConversation(upsertConversation(current, parent), thread);
@@ -511,6 +546,7 @@ export default function Home() {
     setMessages(threadMessages);
     setResponseSources(thread.sourceSets ?? {});
     setVisualSets(thread.visualSets ?? {});
+    setVideoSets(thread.videoSets ?? {});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
     setActiveVisualIndex(null);
@@ -660,14 +696,32 @@ export default function Home() {
     visualDiscoveryMutation.mutate({ query: sourceSet.query, messageIndex });
   };
 
+  const openWebResultVideoDiscovery = (messageIndex: number) => {
+    const sourceSet = responseSources[messageIndex];
+    const videoSet = videoSets[messageIndex];
+    if (videoSet) {
+      setActiveVideoIndex(messageIndex);
+      setSourceDrawerOpen(false);
+      setVideoDrawerOpen(true);
+      return;
+    }
+    if (!sourceSet?.query || videoDiscoveryMutation.isPending) return;
+    setDiscoveringVideoReplyIndex(messageIndex);
+    setTaskCapabilities((current) => ({ ...current, usesWebResearch: true }));
+    videoDiscoveryMutation.mutate({ query: sourceSet.query, messageIndex });
+  };
+
   const clearCurrentChat = () => {
     setMessages(starterMessages);
     setResponseSources({});
     setVisualSets({});
+    setVideoSets({});
     setActiveSourceIndex(null);
     setSourceDrawerOpen(false);
     setActiveVisualIndex(null);
     setVisualDrawerOpen(false);
+    setActiveVideoIndex(null);
+    setVideoDrawerOpen(false);
     setAttachedImage(null);
     setFailedMessages(null);
     setMenuOpen(false);
@@ -865,9 +919,11 @@ export default function Home() {
 
   const activeSourceSet = activeSourceIndex === null ? null : responseSources[activeSourceIndex] ?? null;
   const activeVisualSet = activeVisualIndex === null ? null : visualSets[activeVisualIndex] ?? null;
+  const activeVideoSet = activeVideoIndex === null ? null : videoSets[activeVideoIndex] ?? null;
   const latestSourceIndex = messages.at(-1)?.role === "assistant" ? messages.length - 1 : null;
   const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
   const latestVisualSet = latestSourceIndex === null ? null : visualSets[latestSourceIndex] ?? null;
+  const latestVideoSet = latestSourceIndex === null ? null : videoSets[latestSourceIndex] ?? null;
   const activeThread = conversations.find((conversation) => conversation.id === activeSessionId)?.thread;
   const activeThreadRootId = getThreadRootId(conversations, activeSessionId);
   const threadRootConversation = conversations.find((conversation) => conversation.id === activeThreadRootId);
@@ -983,7 +1039,7 @@ export default function Home() {
         <aside className="source-results-drawer" aria-label="Web results for this response">
           <div className="drawer-heading"><div><span className="drawer-kicker">gvone sources</span><h2>Web results</h2></div><button className="drawer-close" type="button" onClick={() => setSourceDrawerOpen(false)} aria-label="Close web results"><X size={18} /></button></div>
           <section className="web-results" aria-label="Website sources">
-            <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {activeSourceSet.query}</strong></div><div className="web-results-toolbar"><button type="button" className="web-results-discovery" onClick={() => openWebResultImageDiscovery(activeSourceIndex ?? -1)} disabled={visualDiscoveryMutation.isPending} aria-busy={discoveringReplyIndex === activeSourceIndex}>{discoveringReplyIndex === activeSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}{visualSets[activeSourceIndex ?? -1] ? "View images" : discoveringReplyIndex === activeSourceIndex ? "Finding images" : "Image discovery"}</button><small>{activeSourceSet.results.length} sources used</small></div></div>
+            <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {activeSourceSet.query}</strong></div><div className="web-results-toolbar"><button type="button" className="web-results-discovery" onClick={() => openWebResultImageDiscovery(activeSourceIndex ?? -1)} disabled={visualDiscoveryMutation.isPending} aria-busy={discoveringReplyIndex === activeSourceIndex}>{discoveringReplyIndex === activeSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}{visualSets[activeSourceIndex ?? -1] ? "View images" : discoveringReplyIndex === activeSourceIndex ? "Finding images" : "Image discovery"}</button><button type="button" className="web-results-discovery" onClick={() => openWebResultVideoDiscovery(activeSourceIndex ?? -1)} disabled={videoDiscoveryMutation.isPending} aria-busy={discoveringVideoReplyIndex === activeSourceIndex}>{discoveringVideoReplyIndex === activeSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}{videoSets[activeSourceIndex ?? -1] ? "View videos" : discoveringVideoReplyIndex === activeSourceIndex ? "Finding videos" : "Video discovery"}</button><small>{activeSourceSet.results.length} sources used</small></div></div>
             {webRetryMutation.isPending && <div className="web-results-loading"><span /><span /><span /> Refreshing websites…</div>}
             {!webRetryMutation.isPending && activeSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
               <img src={result.favicon} alt="" className="web-result-favicon" />
@@ -1005,6 +1061,19 @@ export default function Home() {
             <div className="visual-result-grid">{activeVisualSet.results.map((result) => { const isSaved = Boolean(activeProject?.visualReferences.some((reference) => reference.url === result.url)); return <div className="visual-result-save-wrap" key={result.url}><a className="visual-result-card" href={result.url} target="_blank" rel="noreferrer"><img src={result.imageUrl} alt="" /><span><b>{result.title}</b><small>{result.domain}</small><em>{result.caption}</em></span><ExternalLink size={13} /></a><button type="button" className="visual-save-button" onClick={() => saveVisualReference(result)} disabled={isSaved}>{isSaved ? "Saved to Project" : "Save to Project"}</button></div>; })}</div>
             {activeVisualSet.error && <div className="web-results-error">{activeVisualSet.error}</div>}
             {!activeVisualSet.error && !activeVisualSet.results.length && <div className="web-results-error">No related visual references were found.</div>}
+          </section>
+        </aside>
+      </>}
+
+      {videoDrawerOpen && activeVideoSet && <>
+        <button className="drawer-backdrop source-drawer-backdrop" type="button" onClick={() => setVideoDrawerOpen(false)} aria-label="Close video matches" />
+        <aside className="source-results-drawer visual-results-drawer video-results-drawer" aria-label="Video matches for this response">
+          <div className="drawer-heading"><div><span className="drawer-kicker">gvone video</span><h2>Video matches</h2></div><button className="drawer-close" type="button" onClick={() => setVideoDrawerOpen(false)} aria-label="Close video matches"><X size={18} /></button></div>
+          <section className="visual-results" aria-label="Related video references">
+            <div className="visual-results-heading"><div><span><Play size={13} /> video discovery</span><strong>Related to: {activeVideoSet.query}</strong></div><div className="visual-results-toolbar"><small>{activeVideoSet.results.length ? `${activeVideoSet.results.length} video references from Web research` : "current matches"}</small></div></div>
+            <div className="visual-result-grid">{activeVideoSet.results.map((result) => <a className="visual-result-card video-result-card" href={result.url} target="_blank" rel="noreferrer" key={result.url}><img src={result.thumbnailUrl} alt="" /><span><b>{result.title}</b><small>{result.provider} · {result.domain}</small><em>{result.caption}</em></span><Play size={13} /></a>)}</div>
+            {activeVideoSet.error && <div className="web-results-error">{activeVideoSet.error}</div>}
+            {!activeVideoSet.error && !activeVideoSet.results.length && <div className="web-results-error">No related video references were found.</div>}
           </section>
         </aside>
       </>}
@@ -1078,8 +1147,15 @@ export default function Home() {
                 {!latestVisualSet.error && !latestVisualSet.results.length && <div className="web-results-error">No related visual references were found.</div>}
                 {latestVisualSet.results.length > 3 && <button className="web-results-more" type="button" onClick={() => { setActiveVisualIndex(latestSourceIndex); setVisualDrawerOpen(true); }}>Explore all visual matches <ChevronDown size={14} /></button>}
               </section>}
+              {latestVideoSet && <section className="visual-results latest-visual-results latest-video-results" aria-label="Latest video discovery results">
+                <div className="visual-results-heading"><div><span><Play size={13} /> video discovery</span><strong>Video references for: {latestVideoSet.query}</strong></div><small>latest reply</small></div>
+                <div className="visual-result-grid">{latestVideoSet.results.slice(0, 3).map((result) => <a className="visual-result-card video-result-card" href={result.url} target="_blank" rel="noreferrer" key={result.url}><img src={result.thumbnailUrl} alt="" /><span><b>{result.title}</b><small>{result.provider} · {result.domain}</small><em>{result.caption}</em></span><Play size={13} /></a>)}</div>
+                {latestVideoSet.error && <div className="web-results-error">{latestVideoSet.error}</div>}
+                {!latestVideoSet.error && !latestVideoSet.results.length && <div className="web-results-error">No related video references were found.</div>}
+                {latestVideoSet.results.length > 3 && <button className="web-results-more" type="button" onClick={() => { setActiveVideoIndex(latestSourceIndex); setVideoDrawerOpen(true); }}>Explore all video matches <ChevronDown size={14} /></button>}
+              </section>}
               {latestSourceSet && <section className="web-results latest-web-results" aria-label="Latest web results">
-                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><div className="web-results-toolbar"><button type="button" className="web-results-discovery" onClick={() => openWebResultImageDiscovery(latestSourceIndex ?? -1)} disabled={visualDiscoveryMutation.isPending} aria-busy={discoveringReplyIndex === latestSourceIndex}>{discoveringReplyIndex === latestSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}{latestVisualSet ? "View images" : discoveringReplyIndex === latestSourceIndex ? "Finding images" : "Image discovery"}</button><small>{latestSourceSet.results.length} sources used</small></div></div>
+                <div className="web-results-heading"><div><span className="web-results-kicker"><Globe2 size={13} /> web results</span><strong>Sources for: {latestSourceSet.query}</strong></div><div className="web-results-toolbar"><button type="button" className="web-results-discovery" onClick={() => openWebResultImageDiscovery(latestSourceIndex ?? -1)} disabled={visualDiscoveryMutation.isPending} aria-busy={discoveringReplyIndex === latestSourceIndex}>{discoveringReplyIndex === latestSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}{latestVisualSet ? "View images" : discoveringReplyIndex === latestSourceIndex ? "Finding images" : "Image discovery"}</button><button type="button" className="web-results-discovery" onClick={() => openWebResultVideoDiscovery(latestSourceIndex ?? -1)} disabled={videoDiscoveryMutation.isPending} aria-busy={discoveringVideoReplyIndex === latestSourceIndex}>{discoveringVideoReplyIndex === latestSourceIndex ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}{latestVideoSet ? "View videos" : discoveringVideoReplyIndex === latestSourceIndex ? "Finding videos" : "Video discovery"}</button><small>{latestSourceSet.results.length} sources used</small></div></div>
                 {latestSourceSet.results.map((result) => <article className="web-result-card" key={result.url}>
                   <img src={result.favicon} alt="" className="web-result-favicon" />
                   <div className="web-result-copy"><a href={result.url} target="_blank" rel="noreferrer" className="web-result-title">{result.title}<ExternalLink size={12} /></a><span className="web-result-domain">{result.domain}</span><p>{result.snippet}</p></div>

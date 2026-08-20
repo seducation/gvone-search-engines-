@@ -32,6 +32,21 @@ export type ChatHistoryVisualSet = {
   error?: string;
 };
 
+export type ChatHistoryVideoResult = {
+  title: string;
+  url: string;
+  domain: string;
+  caption: string;
+  thumbnailUrl: string;
+  provider: "YouTube" | "Vimeo" | "Video";
+};
+
+export type ChatHistoryVideoSet = {
+  query: string;
+  results: ChatHistoryVideoResult[];
+  error?: string;
+};
+
 export type FedMemory = {
   id: string;
   content: string;
@@ -58,6 +73,7 @@ export type ChatHistoryConversation = {
   studioId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
+  videoSets?: Record<number, ChatHistoryVideoSet>;
   thread?: ChatHistoryThread;
   updatedAt: number;
 };
