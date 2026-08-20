@@ -303,3 +303,7 @@
 - [x] Show appropriate activity indicators for research, visual discovery, and reply preparation.
 - [x] Keep the compact header state minimal while making the expanded view more informative.
 - [x] Verify enhanced task progress alongside visual workflows, run tests, and save a checkpoint.
+
+- [x] Move Studios into the Project sidebar navigation beside Home, Chats, Files, and Settings.
+- [x] Remove the floating bottom Studios control from the Project workspace.
+- [x] Verify desktop/mobile Project navigation, run tests, and save a checkpoint.
