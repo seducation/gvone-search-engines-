@@ -133,6 +133,7 @@ export default function Home() {
   const isProgressPreview = progressPreview === "progress" || progressPreview === "progress-compact";
   const isProgressPreviewExpanded = progressPreview === "progress";
   const isWebResultsPreview = progressPreview === "web-results";
+  const isImageDiscoveryPreview = progressPreview === "image-discovery";
   const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
   const feedMemoryPreviewScope: FedMemory["scope"] = progressPreview === "feed-memory-chat" ? "chat" : "global";
   const isProjectEntryPreview = progressPreview === "project-view";
@@ -178,6 +179,7 @@ export default function Home() {
     }
   });
   const [visualSets, setVisualSets] = useState<Record<number, ChatHistoryVisualSet>>(() => {
+    if (isImageDiscoveryPreview) return { 0: { query: "contemporary editorial botanical studies", results: [{ title: "Botanical study collection", url: "https://example.com/botanical-study", domain: "example.com", caption: "Reference imagery for calm editorial botanical compositions.", imageUrl: "https://images.unsplash.com/photo-1497250681960-ef046c08a56e?auto=format&fit=crop&w=720&q=80" }, { title: "Natural materials reference", url: "https://example.org/natural-materials", domain: "example.org", caption: "A visual direction exploring organic texture and warm natural surfaces.", imageUrl: "https://images.unsplash.com/photo-1463320726281-696a485928c7?auto=format&fit=crop&w=720&q=80" }] } };
     if (new URLSearchParams(window.location.search).get("preview")) return {};
     try {
       const activeId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
@@ -852,7 +854,7 @@ export default function Home() {
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}{visualSets[index] && index !== latestSourceIndex && <button type="button" className="visual-results-trigger" onClick={() => { setActiveVisualIndex(index); setVisualDrawerOpen(true); }}><ScanSearch size={12} /> Visual matches <span>{visualSets[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}{visualSets[index] && <button type="button" className="visual-results-trigger" onClick={() => { setActiveVisualIndex(index); setVisualDrawerOpen(true); }}><ScanSearch size={12} /> Image discovery <span>{visualSets[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
                   </div>
                 </div>
               ))}

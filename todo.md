@@ -282,3 +282,7 @@
 - [x] Remove copy, share, like, and dislike controls from Web Results source cards.
 - [x] Keep source titles and direct result links as the primary Web Results interaction.
 - [x] Verify the simplified source-card layout, run tests, and save a checkpoint.
+
+- [x] Add a compact Image discovery action beneath gvone replies.
+- [x] Open saved visual matches directly from the associated reply, including older responses.
+- [x] Verify desktop/mobile reply actions, run tests, and save a checkpoint.
