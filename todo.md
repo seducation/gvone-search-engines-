@@ -292,3 +292,14 @@
 - [x] Surface Studios in the project navigation and provide a focused Studio view.
 - [x] Include selected Studio context with project instructions in related new replies.
 - [x] Verify desktop/mobile Studio creation and navigation, run tests, and save a checkpoint.
+
+- [x] Add a per-reply Image discovery control beside Replay with clear enabled state.
+- [x] Save individual visual references into the active Project with a remove action.
+- [x] Add a full-screen visual board to compare saved and current visual references.
+- [x] Keep visual reference data persistent and organized inside Project context.
+- [x] Add focused tests, verify desktop/mobile workflows, and save a checkpoint.
+
+- [x] Strengthen the task-progress bar with clear work-aware stages, state labels, and live detail.
+- [x] Show appropriate activity indicators for research, visual discovery, and reply preparation.
+- [x] Keep the compact header state minimal while making the expanded view more informative.
+- [x] Verify enhanced task progress alongside visual workflows, run tests, and save a checkpoint.
