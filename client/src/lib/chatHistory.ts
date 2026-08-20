@@ -46,6 +46,7 @@ export type ChatHistoryConversation = {
   title: string;
   messages: ChatHistoryMessage[];
   projectId?: string;
+  studioId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
   updatedAt: number;
@@ -86,9 +87,9 @@ export function buildFedMemoryContext(items: FedMemory[], activeChatId: string, 
   return references.slice(0, maxChars);
 }
 
-export function buildProjectContext(conversations: ChatHistoryConversation[], projectId: string, activeId: string, limit = 3, maxChars = 3400): string {
+export function buildProjectContext(conversations: ChatHistoryConversation[], projectId: string, activeId: string, limit = 3, maxChars = 3400, studioId?: string): string {
   const sharedContext = conversations
-    .filter((conversation) => conversation.projectId === projectId && conversation.id !== activeId && conversation.messages.some((message) => message.role === "user"))
+    .filter((conversation) => conversation.projectId === projectId && (!studioId || conversation.studioId === studioId) && conversation.id !== activeId && conversation.messages.some((message) => message.role === "user"))
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, limit)
     .map((conversation) => {

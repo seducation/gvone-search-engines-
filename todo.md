@@ -286,3 +286,9 @@
 - [x] Add a compact Image discovery action beneath gvone replies.
 - [x] Open saved visual matches directly from the associated reply, including older responses.
 - [x] Verify desktop/mobile reply actions, run tests, and save a checkpoint.
+
+- [x] Add Studios as focused workspaces inside each Project.
+- [x] Support Studio titles and working briefs without cluttering the Project Home.
+- [x] Surface Studios in the project navigation and provide a focused Studio view.
+- [x] Include selected Studio context with project instructions in related new replies.
+- [x] Verify desktop/mobile Studio creation and navigation, run tests, and save a checkpoint.

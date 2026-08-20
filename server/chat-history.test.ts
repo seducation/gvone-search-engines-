@@ -80,4 +80,15 @@ describe("chat history helpers", () => {
     expect(context).not.toContain("Current details");
     expect(context).not.toContain("must not appear");
   });
+
+  it("limits shared project context to the selected Studio when one is active", () => {
+    const conversations: ChatHistoryConversation[] = [
+      { id: "active", title: "Current concept", projectId: "project-a", studioId: "studio-visual", messages: [{ role: "user", content: "Current visual direction" }], updatedAt: 4 },
+      { id: "visual", title: "Visual references", projectId: "project-a", studioId: "studio-visual", messages: [{ role: "user", content: "Use quiet natural textures and editorial spacing." }], updatedAt: 3 },
+      { id: "research", title: "Research notes", projectId: "project-a", studioId: "studio-research", messages: [{ role: "user", content: "Use longitudinal evidence for the research review." }], updatedAt: 2 },
+    ];
+    const context = buildProjectContext(conversations, "project-a", "active", 3, 3400, "studio-visual");
+    expect(context).toContain("quiet natural textures");
+    expect(context).not.toContain("longitudinal evidence");
+  });
 });

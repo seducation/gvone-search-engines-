@@ -29,6 +29,7 @@ type SavedConversation = {
   title: string;
   messages: ChatMessage[];
   projectId?: string;
+  studioId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
   updatedAt: number;
@@ -43,12 +44,21 @@ type ProjectFile = {
   uploadedAt: number;
 };
 
+type ProjectStudio = {
+  id: string;
+  name: string;
+  brief: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 type WorkspaceProject = {
   id: string;
   name: string;
   description: string;
   instructions: string;
   files: ProjectFile[];
+  studios: ProjectStudio[];
   createdAt: number;
   updatedAt: number;
 };
@@ -93,7 +103,7 @@ const readProjects = (): WorkspaceProject[] => {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((item): item is WorkspaceProject => Boolean(item && typeof item === "object" && typeof (item as WorkspaceProject).id === "string" && typeof (item as WorkspaceProject).name === "string"))
-      .map((item) => ({ id: item.id, name: item.name.slice(0, 70), description: typeof item.description === "string" ? item.description.slice(0, 240) : "", instructions: typeof item.instructions === "string" ? item.instructions.slice(0, 1800) : "", files: Array.isArray(item.files) ? item.files.filter((file): file is ProjectFile => Boolean(file && typeof file.name === "string" && typeof file.key === "string" && typeof file.url === "string")).slice(0, 12) : [], createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(), updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
+      .map((item) => ({ id: item.id, name: item.name.slice(0, 70), description: typeof item.description === "string" ? item.description.slice(0, 240) : "", instructions: typeof item.instructions === "string" ? item.instructions.slice(0, 1800) : "", files: Array.isArray(item.files) ? item.files.filter((file): file is ProjectFile => Boolean(file && typeof file.name === "string" && typeof file.key === "string" && typeof file.url === "string")).slice(0, 12) : [], studios: Array.isArray(item.studios) ? item.studios.filter((studio): studio is ProjectStudio => Boolean(studio && typeof studio.id === "string" && typeof studio.name === "string")).map((studio) => ({ id: studio.id, name: studio.name.slice(0, 70), brief: typeof studio.brief === "string" ? studio.brief.slice(0, 480) : "", createdAt: typeof studio.createdAt === "number" ? studio.createdAt : Date.now(), updatedAt: typeof studio.updatedAt === "number" ? studio.updatedAt : Date.now() })).slice(0, 12) : [], createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(), updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now() }))
       .slice(0, 12);
   } catch {
     return [];
@@ -136,7 +146,8 @@ export default function Home() {
   const isImageDiscoveryPreview = progressPreview === "image-discovery";
   const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
   const feedMemoryPreviewScope: FedMemory["scope"] = progressPreview === "feed-memory-chat" ? "chat" : "global";
-  const isProjectEntryPreview = progressPreview === "project-view";
+  const isStudioPreview = progressPreview === "studios";
+  const isProjectEntryPreview = progressPreview === "project-view" || isStudioPreview;
   const isProjectsPreview = progressPreview === "projects" || isProjectEntryPreview;
   const isWorkspacePreview = isProjectsPreview || progressPreview === "history" || progressPreview === "history-project";
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -192,21 +203,25 @@ export default function Home() {
   const [activeVisualIndex, setActiveVisualIndex] = useState<number | null>(null);
   const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
   const [visualDiscoveryMode, setVisualDiscoveryMode] = useState(false);
-  const [conversations, setConversations] = useState<SavedConversation[]>(() => isWorkspacePreview ? [{ id: "preview-personal", title: "Literature review outline", messages: [{ role: "user", content: "Help structure the literature review." }, { role: "assistant", content: "Start with the research question and themes." }], updatedAt: 0 }, { id: "preview-project-chat", title: "Source evaluation", projectId: "preview-project", messages: [{ role: "user", content: "Which sources should lead the project?" }, { role: "assistant", content: "Prioritize original evidence and clear attribution." }], updatedAt: 1 }] : readSavedConversations());
+  const [conversations, setConversations] = useState<SavedConversation[]>(() => isWorkspacePreview ? [{ id: "preview-personal", title: "Literature review outline", messages: [{ role: "user", content: "Help structure the literature review." }, { role: "assistant", content: "Start with the research question and themes." }], updatedAt: 0 }, { id: "preview-project-chat", title: "Source evaluation", projectId: "preview-project", studioId: "preview-studio", messages: [{ role: "user", content: "Which sources should lead the project?" }, { role: "assistant", content: "Prioritize original evidence and clear attribution." }], updatedAt: 1 }] : readSavedConversations());
   const [activeSessionId, setActiveSessionId] = useState(() => {
     if (progressPreview === "feed-memory-chat") return "preview-chat";
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
   });
-  const [projects, setProjects] = useState<WorkspaceProject[]>(() => isWorkspacePreview ? [{ id: "preview-project", name: "Research Studio", description: "A focused space for source-led research, working notes, and final recommendations.", instructions: "Use a clear, research-led tone. Identify assumptions and keep recommendations practical.", files: [{ key: "preview-brief", url: "#", name: "project-brief.pdf", mimeType: "application/pdf", size: 248000, uploadedAt: 0 }, { key: "preview-notes", url: "#", name: "source-notes.md", mimeType: "text/markdown", size: 12000, uploadedAt: 0 }], createdAt: 0, updatedAt: 0 }] : readProjects());
+  const [projects, setProjects] = useState<WorkspaceProject[]>(() => isWorkspacePreview ? [{ id: "preview-project", name: "Research Studio", description: "A focused space for source-led research, working notes, and final recommendations.", instructions: "Use a clear, research-led tone. Identify assumptions and keep recommendations practical.", files: [{ key: "preview-brief", url: "#", name: "project-brief.pdf", mimeType: "application/pdf", size: 248000, uploadedAt: 0 }, { key: "preview-notes", url: "#", name: "source-notes.md", mimeType: "text/markdown", size: 12000, uploadedAt: 0 }], studios: [{ id: "preview-studio", name: "Visual direction", brief: "Develop a quiet editorial visual language with natural material references.", createdAt: 0, updatedAt: 0 }], createdAt: 0, updatedAt: 0 }] : readProjects());
   const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
     if (isProjectsPreview) return "preview-project";
     try { return window.localStorage.getItem(ACTIVE_PROJECT_KEY) || null; } catch { return null; }
   });
   const [projectsOpen, setProjectsOpen] = useState(() => new URLSearchParams(window.location.search).get("preview") === "projects");
   const [projectViewOpen, setProjectViewOpen] = useState(isProjectEntryPreview);
-  const [projectViewSection, setProjectViewSection] = useState<"home" | "chats" | "files" | "settings">("home");
+  const [projectStudiosOpen, setProjectStudiosOpen] = useState(isStudioPreview);
+  const [projectViewSection, setProjectViewSection] = useState<"home" | "chats" | "studios" | "files" | "settings">("home");
+  const [activeStudioId, setActiveStudioId] = useState<string | null>(() => isProjectEntryPreview ? "preview-studio" : null);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [newStudioName, setNewStudioName] = useState("");
+  const [newStudioBrief, setNewStudioBrief] = useState("");
   const [projectChatSearch, setProjectChatSearch] = useState("");
   const [assignProjectChatId, setAssignProjectChatId] = useState<string | null>(() => progressPreview === "history-project" ? "preview-personal" : null);
   const [historyOpen, setHistoryOpen] = useState(() => ["history", "history-project"].includes(new URLSearchParams(window.location.search).get("preview") ?? ""));
@@ -368,8 +383,8 @@ export default function Home() {
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
     const title = getConversationTitle(messages);
-    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, sourceSets: responseSources, visualSets, updatedAt: Date.now() }));
-  }, [activeProjectId, activeSessionId, messages, responseSources, visualSets]);
+    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, studioId: activeStudioId ?? undefined, sourceSets: responseSources, visualSets, updatedAt: Date.now() }));
+  }, [activeProjectId, activeSessionId, activeStudioId, messages, responseSources, visualSets]);
 
   const startNewChat = () => {
     const nextId = safeId();
@@ -392,6 +407,7 @@ export default function Home() {
   const openConversation = (conversation: SavedConversation) => {
     setActiveSessionId(conversation.id);
     setActiveProjectId(conversation.projectId ?? null);
+    setActiveStudioId(conversation.studioId ?? null);
     setMessages(conversation.messages);
     setResponseSources(conversation.sourceSets ?? {});
     setVisualSets(conversation.visualSets ?? {});
@@ -411,7 +427,7 @@ export default function Home() {
     if (!name) { toast.error("Give the project a name first."); return; }
     if (projects.length >= 12) { toast.error("Keep up to twelve projects. Remove one to create another."); return; }
     const now = Date.now();
-    const project: WorkspaceProject = { id: safeId(), name: name.slice(0, 70), description: newProjectDescription.trim().slice(0, 240), instructions: "", files: [], createdAt: now, updatedAt: now };
+    const project: WorkspaceProject = { id: safeId(), name: name.slice(0, 70), description: newProjectDescription.trim().slice(0, 240), instructions: "", files: [], studios: [], createdAt: now, updatedAt: now };
     setProjects((current) => [project, ...current]);
     setActiveProjectId(project.id);
     setNewProjectName("");
@@ -424,6 +440,7 @@ export default function Home() {
 
   const enterProjectView = (projectId: string) => {
     setActiveProjectId(projectId);
+    setActiveStudioId(null);
     setProjectsOpen(false);
     setHistoryOpen(false);
     setProjectViewSection("home");
@@ -446,18 +463,45 @@ export default function Home() {
     setProjects((current) => current.map((project) => project.id === projectId ? { ...project, ...update, updatedAt: Date.now() } : project));
   };
 
+  const createStudio = () => {
+    const name = newStudioName.trim();
+    if (!activeProject || !name) { toast.error("Give the Studio a name first."); return; }
+    if (activeProject.studios.length >= 12) { toast.error("Keep up to twelve Studios in a project."); return; }
+    const now = Date.now();
+    const studio: ProjectStudio = { id: safeId(), name: name.slice(0, 70), brief: newStudioBrief.trim().slice(0, 480), createdAt: now, updatedAt: now };
+    updateProject(activeProject.id, { studios: [studio, ...activeProject.studios] });
+    setActiveStudioId(studio.id);
+    setNewStudioName("");
+    setNewStudioBrief("");
+    setProjectViewSection("studios");
+    toast.success(`${studio.name} Studio is ready.`);
+  };
+
+  const updateStudio = (studioId: string, update: Partial<ProjectStudio>) => {
+    if (!activeProject) return;
+    updateProject(activeProject.id, { studios: activeProject.studios.map((studio) => studio.id === studioId ? { ...studio, ...update, updatedAt: Date.now() } : studio) });
+  };
+
+  const deleteStudio = (studioId: string) => {
+    if (!activeProject) return;
+    updateProject(activeProject.id, { studios: activeProject.studios.filter((studio) => studio.id !== studioId) });
+    setConversations((current) => current.map((conversation) => conversation.studioId === studioId ? { ...conversation, studioId: undefined } : conversation));
+    if (activeStudioId === studioId) setActiveStudioId(null);
+    toast.success("Studio removed. Its chats remain in the Project.");
+  };
+
   const deleteProject = (projectId: string) => {
     const project = projects.find((item) => item.id === projectId);
     setProjects((current) => current.filter((item) => item.id !== projectId));
-    setConversations((current) => current.map((conversation) => conversation.projectId === projectId ? { ...conversation, projectId: undefined } : conversation));
-    if (activeProjectId === projectId) { setActiveProjectId(null); setProjectViewOpen(false); startNewChat(); }
+    setConversations((current) => current.map((conversation) => conversation.projectId === projectId ? { ...conversation, projectId: undefined, studioId: undefined } : conversation));
+    if (activeProjectId === projectId) { setActiveProjectId(null); setActiveStudioId(null); setProjectViewOpen(false); startNewChat(); }
     toast.success(`${project?.name ?? "Project"} moved its chats back to Personal.`);
   };
 
   const assignChatToProject = (chatId: string, projectId: string | null) => {
     const project = projectId ? projects.find((item) => item.id === projectId) : undefined;
-    setConversations((current) => current.map((conversation) => conversation.id === chatId ? { ...conversation, projectId: projectId ?? undefined, updatedAt: Date.now() } : conversation));
-    if (chatId === activeSessionId) setActiveProjectId(projectId);
+    setConversations((current) => current.map((conversation) => conversation.id === chatId ? { ...conversation, projectId: projectId ?? undefined, studioId: projectId === conversation.projectId ? conversation.studioId : undefined, updatedAt: Date.now() } : conversation));
+    if (chatId === activeSessionId) { setActiveProjectId(projectId); setActiveStudioId(null); }
     setAssignProjectChatId(null);
     toast.success(project ? `Chat added to ${project.name}.` : "Chat moved to Personal chats.");
   };
@@ -576,10 +620,11 @@ export default function Home() {
     const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
     const fedMemory = buildFedMemoryContext(fedMemories, activeSessionId);
     const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
-    const projectContext = activeProject ? buildProjectContext(conversations, activeProject.id, activeSessionId) : "";
+    const activeStudio = activeProject?.studios.find((studio) => studio.id === activeStudioId);
+    const projectContext = activeProject ? buildProjectContext(conversations, activeProject.id, activeSessionId, 3, 3400, activeStudio?.id) : "";
     setAttachedImage(null);
     setVisualDiscoveryMode(false);
-    const projectInstructions = activeProject ? [`Project purpose: ${activeProject.description}`.trim(), activeProject.instructions.trim()].filter((item) => item !== "Project purpose:" && Boolean(item)).join("\n\n") : undefined;
+    const projectInstructions = activeProject ? [`Project purpose: ${activeProject.description}`.trim(), activeProject.instructions.trim(), activeStudio ? `Studio focus — ${activeStudio.name}: ${activeStudio.brief || "Use this Studio as the focused direction for the conversation."}` : ""].filter((item) => item !== "Project purpose:" && Boolean(item)).join("\n\n") : undefined;
     chatMutation.mutate({ messages: nextMessages, discoverVisuals, memory: fedMemory || conversationMemory || activeProject ? { fedMemory: fedMemory || undefined, conversationMemory: conversationMemory || undefined, projectInstructions: projectInstructions || undefined, projectContext: projectContext || undefined, projectFiles: activeProject?.files.map((file) => ({ name: file.name, mimeType: file.mimeType })) } : undefined });
   };
 
@@ -681,9 +726,11 @@ export default function Home() {
   const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
   const latestVisualSet = latestSourceIndex === null ? null : visualSets[latestSourceIndex] ?? null;
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
+  const activeStudio = activeProject?.studios.find((studio) => studio.id === activeStudioId);
   const visibleFedMemories = getVisibleFedMemories(fedMemories, activeSessionId);
   const activeProjectChats = activeProject ? conversations.filter((conversation) => conversation.projectId === activeProject.id).sort((a, b) => b.updatedAt - a.updatedAt) : [];
   const filteredProjectChats = activeProjectChats.filter((conversation) => conversation.title.toLowerCase().includes(projectChatSearch.toLowerCase()));
+  const activeStudioChats = activeStudio ? activeProjectChats.filter((conversation) => conversation.studioId === activeStudio.id) : [];
 
   return (
     <main className={cn("assistant-shell min-h-screen overflow-hidden bg-[#f4f0ea] text-[#1f2430]", !ambientMotion && "ambient-muted")}>
@@ -721,6 +768,10 @@ export default function Home() {
       {projectViewOpen && activeProject && <section className="project-workspace-shell" aria-label={`${activeProject.name} project workspace`}><header className="project-workspace-topbar"><div className="project-workspace-breadcrumb"><button type="button" onClick={() => setProjectViewOpen(false)}><ArrowLeft size={15} /> All chats</button><span>/</span><button type="button" onClick={() => { setProjectsOpen(true); setProjectViewOpen(false); }}>All projects</button></div><div className="project-workspace-top-actions"><button type="button" onClick={() => setProjectViewSection("settings")}><Settings size={15} /> Project settings</button><button type="button" onClick={startProjectChat}><MessageSquarePlus size={15} /> New chat</button></div></header><div className="project-workspace-layout"><aside className="project-workspace-sidebar"><button className="project-workspace-identity" type="button" onClick={() => setProjectViewSection("home")}><span className="project-avatar"><FolderKanban size={18} /></span><span><small>PROJECT</small><strong>{activeProject.name}</strong></span></button><nav className="project-workspace-nav" aria-label="Project navigation"><button className={cn(projectViewSection === "home" && "is-active")} type="button" onClick={() => setProjectViewSection("home")}><FolderKanban size={15} /> Home</button><button className={cn(projectViewSection === "chats" && "is-active")} type="button" onClick={() => setProjectViewSection("chats")}><MessageSquarePlus size={15} /> Chats <small>{activeProjectChats.length}</small></button><button className={cn(projectViewSection === "files" && "is-active")} type="button" onClick={() => setProjectViewSection("files")}><FileText size={15} /> Files <small>{activeProject.files.length}</small></button><button className={cn(projectViewSection === "settings" && "is-active")} type="button" onClick={() => setProjectViewSection("settings")}><Settings size={15} /> Settings</button></nav><button className="project-sidebar-new-chat" type="button" onClick={startProjectChat}><MessageSquarePlus size={15} /> New chat</button><div className="project-sidebar-chats"><label><Search size={14} /><input value={projectChatSearch} onChange={(event) => setProjectChatSearch(event.target.value)} placeholder="Search chats" aria-label="Search project chats" /></label><span>PROJECT CHATS</span>{filteredProjectChats.map((conversation) => <button className={cn(conversation.id === activeSessionId && "is-active")} type="button" onClick={() => openConversation(conversation)} key={conversation.id}><strong>{conversation.title}</strong><small>{new Date(conversation.updatedAt).toLocaleDateString()}</small></button>)}{!filteredProjectChats.length && <p>{activeProjectChats.length ? "No chats match your search." : "No chats yet."}</p>}</div></aside><main className="project-workspace-main">{projectViewSection === "home" && <section className="project-home"><div className="project-home-hero"><span className="project-avatar project-avatar-large"><FolderKanban size={24} /></span><div><p>PROJECT HOME</p><h1>{activeProject.name}</h1><span>{activeProject.description || "A dedicated workspace for shared chats, context, instructions, and files."}</span></div><button type="button" onClick={() => setProjectViewSection("settings")} aria-label="Edit project details"><MoreHorizontal size={18} /></button></div><div className="project-home-actions"><button type="button" onClick={startProjectChat}><MessageSquarePlus size={17} /><span><strong>New chat</strong><small>Start with this project’s context</small></span></button><button type="button" onClick={() => setProjectViewSection("files")}><FilePlus2 size={17} /><span><strong>Add file</strong><small>{activeProject.files.length ? `${activeProject.files.length} files available` : "Keep shared material together"}</small></span></button><button type="button" onClick={() => setProjectViewSection("settings")}><Settings size={17} /><span><strong>Instructions</strong><small>{activeProject.instructions ? "Active for every project chat" : "Set shared working guidance"}</small></span></button></div><div className="project-home-grid"><section><div className="project-section-heading"><div><span>RECENT CHATS</span><h2>Continue your work</h2></div><button type="button" onClick={() => setProjectViewSection("chats")}>View all</button></div><div className="project-recent-chats">{activeProjectChats.slice(0, 4).map((conversation) => <button type="button" onClick={() => openConversation(conversation)} key={conversation.id}><MessageSquarePlus size={15} /><span><strong>{conversation.title}</strong><small>{conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "No visitor message yet"}</small></span><em>{new Date(conversation.updatedAt).toLocaleDateString()}</em></button>)}{!activeProjectChats.length && <div className="project-home-empty"><p>No project chats yet.</p><button type="button" onClick={startProjectChat}>Create the first chat</button></div>}</div></section><aside className="project-context-summary"><span>SHARED CONTEXT</span><strong>{activeProject.instructions ? "Project instructions are active" : "No project instructions yet"}</strong><p>{activeProject.instructions || "Add shared guidance so gvone carries the same goals and working style into every chat in this project."}</p><small><FileText size={12} /> {activeProject.files.length} shared files · {activeProjectChats.length} project chats</small></aside></div></section>}{projectViewSection === "chats" && <section className="project-view-section"><div className="project-section-heading"><div><span>PROJECT CHATS</span><h1>{activeProject.name}</h1></div><button type="button" onClick={startProjectChat}><MessageSquarePlus size={15} /> New chat</button></div><div className="project-full-chat-list">{filteredProjectChats.map((conversation) => <button type="button" onClick={() => openConversation(conversation)} key={conversation.id}><MessageSquarePlus size={16} /><span><strong>{conversation.title}</strong><small>{conversation.messages.filter((message) => message.role === "user").at(-1)?.content ?? "No visitor message yet"}</small></span><em>{new Date(conversation.updatedAt).toLocaleDateString()}</em></button>)}{!filteredProjectChats.length && <div className="project-home-empty"><p>{activeProjectChats.length ? "No chats match your search." : "No chats in this project yet."}</p><button type="button" onClick={startProjectChat}>New project chat</button></div>}</div></section>}{projectViewSection === "files" && <section className="project-view-section"><div className="project-section-heading"><div><span>PROJECT FILES</span><h1>Shared project files</h1></div><input ref={projectFileInputRef} type="file" className="project-file-input" accept=".pdf,.txt,.md,.csv,.json,.docx,.xlsx,image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProjectFile(file); event.currentTarget.value = ""; }} /><button type="button" onClick={() => projectFileInputRef.current?.click()} disabled={projectFileUploadMutation.isPending}>{projectFileUploadMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <FilePlus2 size={15} />} Add file</button></div><div className="project-files-view">{activeProject.files.map((file) => <article key={file.key}><a href={file.url} target="_blank" rel="noreferrer"><FileText size={17} /><span><strong>{file.name}</strong><small>{file.mimeType.split("/").at(-1)} · {Math.max(1, Math.round(file.size / 1024))} KB · added {new Date(file.uploadedAt).toLocaleDateString()}</small></span></a><button type="button" onClick={() => updateProject(activeProject.id, { files: activeProject.files.filter((item) => item.key !== file.key) })} aria-label={`Remove ${file.name}`}><Trash2 size={14} /></button></article>)}{!activeProject.files.length && <div className="project-home-empty"><FileText size={24} /><p>No files have been added to this project.</p><button type="button" onClick={() => projectFileInputRef.current?.click()}>Add a file</button></div>}</div></section>}{projectViewSection === "settings" && <section className="project-view-section project-settings-view"><div className="project-section-heading"><div><span>PROJECT SETTINGS</span><h1>Shared workspace setup</h1></div></div><label><span>Project name</span><input value={activeProject.name} onChange={(event) => updateProject(activeProject.id, { name: event.target.value.slice(0, 70) })} /></label><label><span>Description</span><textarea value={activeProject.description} onChange={(event) => updateProject(activeProject.id, { description: event.target.value.slice(0, 240) })} placeholder="Explain what this project is for." rows={3} /><small>{activeProject.description.length}/240</small></label><label><span>Project instructions</span><textarea value={activeProject.instructions} onChange={(event) => updateProject(activeProject.id, { instructions: event.target.value.slice(0, 1800) })} placeholder="Set tone, goals, constraints, and working preferences for every chat in this project." rows={6} /><small>Global settings → Project instructions → Chat context → Current message</small></label><div className="project-settings-context"><Sparkles size={16} /><div><strong>Shared project context</strong><small>gvone can use this project’s instructions, files, and related chats when you start or continue a project conversation.</small></div></div><div className="project-danger"><div><strong>Delete project</strong><small>Its chats will move back to Personal chats.</small></div><button type="button" onClick={() => deleteProject(activeProject.id)}>Delete project</button></div></section>}</main></div></section>}
 
       {(chatMutation.isPending || isProgressPreview) && <section className={cn("header-task-progress", taskProgressOpen && "is-expanded")} aria-label="gvone task progress"><button className="header-task-summary" type="button" onClick={() => setTaskProgressOpen((value) => !value)} aria-expanded={taskProgressOpen}><span className="task-progress-orb" /><span><b>{TASK_PROGRESS_STAGES[taskStageIndex]}</b><small>gvone is working</small></span><span className="header-task-meter"><i style={{ width: `${getTaskProgressPercent(taskStageIndex)}%` }} /></span><ChevronDown size={15} /></button>{taskProgressOpen && <div className="header-task-details"><div className="header-task-steps">{TASK_PROGRESS_STAGES.map((stage, index) => <div className={cn(index < taskStageIndex && "is-complete", index === taskStageIndex && "is-current")} key={stage}><i /> <span>{stage}</span><small>{index < taskStageIndex ? "done" : index === taskStageIndex ? "in progress" : "queued"}</small></div>)}</div></div>}</section>}
+
+      {projectViewOpen && activeProject && <button className="project-studios-entry" type="button" onClick={() => setProjectStudiosOpen(true)}><Sparkles size={15} /> Studios <span>{activeProject.studios.length}</span></button>}
+
+      {projectStudiosOpen && activeProject && <><button className="drawer-backdrop" type="button" onClick={() => setProjectStudiosOpen(false)} aria-label="Close Studios" /><aside className="studio-workspace-drawer" aria-label={`${activeProject.name} Studios`}><div className="drawer-heading"><div><span className="drawer-kicker">{activeProject.name}</span><h2>Studios</h2></div><button className="drawer-close" type="button" onClick={() => setProjectStudiosOpen(false)} aria-label="Close Studios"><X size={18} /></button></div><div className="studio-intro"><Sparkles size={17} /><div><strong>Focused project directions</strong><small>Use Studios to keep a specific brief and its conversations together inside this Project.</small></div></div><div className="studio-create"><input value={newStudioName} onChange={(event) => setNewStudioName(event.target.value.slice(0, 70))} onKeyDown={(event) => { if (event.key === "Enter") createStudio(); }} placeholder="Studio name" aria-label="Studio name" /><textarea value={newStudioBrief} onChange={(event) => setNewStudioBrief(event.target.value.slice(0, 480))} placeholder="What should this Studio focus on? (optional)" aria-label="Studio brief" rows={3} /><button type="button" onClick={createStudio}><Plus size={15} /> Create Studio</button></div>{activeStudio && <section className="studio-focus-card"><div><span>ACTIVE STUDIO</span><h3>{activeStudio.name}</h3></div><button type="button" onClick={startProjectChat}><MessageSquarePlus size={14} /> New Studio chat</button><textarea value={activeStudio.brief} onChange={(event) => updateStudio(activeStudio.id, { brief: event.target.value.slice(0, 480) })} placeholder="Set the focused direction for Studio conversations." rows={4} /><small>{activeStudioChats.length} chats use this Studio · The brief is included with project context.</small></section>}<div className="studio-list"><span>PROJECT STUDIOS</span>{activeProject.studios.map((studio) => <article className={cn(studio.id === activeStudioId && "is-active")} key={studio.id}><button type="button" onClick={() => setActiveStudioId(studio.id)}><Sparkles size={14} /><div><strong>{studio.name}</strong><small>{studio.brief || "No focused brief yet."}</small></div></button><button className="studio-remove" type="button" onClick={() => deleteStudio(studio.id)} aria-label={`Remove ${studio.name} Studio`}><Trash2 size={13} /></button></article>)}{!activeProject.studios.length && <div className="studio-empty"><Sparkles size={20} /><p>Create a Studio for a research thread, visual direction, or planning track.</p></div>}</div></aside></>}
 
       {historyOpen && <>
         <button className="drawer-backdrop" type="button" onClick={() => setHistoryOpen(false)} aria-label="Close chat history" />
