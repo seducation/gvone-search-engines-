@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, ChevronDown, Download, ExternalLink, FilePlus2, FileText, FolderKanban, Globe2, ImagePlus, Loader2, Menu, MessageSquarePlus, Mic, MoreHorizontal, Network, Plus, ScanSearch, Search, Settings, Sparkles, Trash2, Volume2, VolumeX, Waves, X } from "lucide-react";
 import "@/lib/web-results-discovery.css";
+import "@/lib/reply-threads.css";
 import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -8,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryThread, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskElapsedLabel, getTaskProgressActivity, getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 import { buildVisualBoardReferences } from "@/lib/visualBoard";
 
@@ -34,6 +35,7 @@ type SavedConversation = {
   studioId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
+  thread?: ChatHistoryThread;
   updatedAt: number;
 };
 
@@ -88,6 +90,8 @@ const PROJECTS_KEY = "gvone-projects-v1";
 const ACTIVE_PROJECT_KEY = "gvone-active-project-v1";
 
 const safeId = () => `gvone-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const sliceReplySets = <T,>(sets: Record<number, T>, replyIndex: number): Record<number, T> => Object.fromEntries(Object.entries(sets).filter(([index]) => Number(index) <= replyIndex));
 const readSavedConversations = (): SavedConversation[] => {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(HISTORY_KEY) ?? "[]") as SavedConversation[];
@@ -427,7 +431,10 @@ export default function Home() {
   useEffect(() => {
     if (!messages.some((message) => message.role === "user")) return;
     const title = getConversationTitle(messages);
-    setConversations((current) => upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, studioId: activeStudioId ?? undefined, sourceSets: responseSources, visualSets, updatedAt: Date.now() }));
+    setConversations((current) => {
+      const existing = current.find((conversation) => conversation.id === activeSessionId);
+      return upsertConversation(current, { id: activeSessionId, title, messages, projectId: activeProjectId ?? undefined, studioId: activeStudioId ?? undefined, sourceSets: responseSources, visualSets, thread: existing?.thread, updatedAt: Date.now() });
+    });
   }, [activeProjectId, activeSessionId, activeStudioId, messages, responseSources, visualSets]);
 
   const startNewChat = () => {
@@ -464,6 +471,58 @@ export default function Home() {
     setFailedMessages(null);
     setHistoryOpen(false);
     setProjectViewOpen(false);
+  };
+
+  const startReplyThread = (replyIndex: number) => {
+    const anchor = messages[replyIndex];
+    if (!anchor || anchor.role !== "assistant") return;
+    const threadId = safeId();
+    const threadMessages = buildReplyThreadMessages(messages, replyIndex);
+    const thread: SavedConversation = {
+      id: threadId,
+      title: `Thread · ${anchor.content.replace(/\s+/g, " ").trim().slice(0, 32)}${anchor.content.trim().length > 32 ? "…" : ""}`,
+      messages: threadMessages,
+      projectId: activeProjectId ?? undefined,
+      studioId: activeStudioId ?? undefined,
+      sourceSets: sliceReplySets(responseSources, replyIndex),
+      visualSets: sliceReplySets(visualSets, replyIndex),
+      thread: { parentConversationId: activeSessionId, parentMessageIndex: replyIndex, anchorContent: anchor.content, createdAt: Date.now() },
+      updatedAt: Date.now(),
+    };
+    setConversations((current) => {
+      const parent = current.find((conversation) => conversation.id === activeSessionId) ?? {
+        id: activeSessionId,
+        title: getConversationTitle(messages),
+        messages,
+        projectId: activeProjectId ?? undefined,
+        studioId: activeStudioId ?? undefined,
+        sourceSets: responseSources,
+        visualSets,
+        updatedAt: Date.now(),
+      };
+      return upsertConversation(upsertConversation(current, parent), thread);
+    });
+    setActiveSessionId(threadId);
+    setMessages(threadMessages);
+    setResponseSources(thread.sourceSets ?? {});
+    setVisualSets(thread.visualSets ?? {});
+    setActiveSourceIndex(null);
+    setSourceDrawerOpen(false);
+    setActiveVisualIndex(null);
+    setVisualDrawerOpen(false);
+    setAttachedImage(null);
+    setInput("");
+    setFailedMessages(null);
+    setHistoryOpen(false);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+    toast.success("Thread started from this response.");
+  };
+
+  const returnToParentConversation = () => {
+    const thread = conversations.find((conversation) => conversation.id === activeSessionId)?.thread;
+    const parent = thread ? conversations.find((conversation) => conversation.id === thread.parentConversationId) : undefined;
+    if (!parent) { toast.error("The original conversation is no longer available."); return; }
+    openConversation(parent);
   };
 
   const createProject = () => {
@@ -800,6 +859,7 @@ export default function Home() {
   const latestSourceIndex = messages.at(-1)?.role === "assistant" ? messages.length - 1 : null;
   const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
   const latestVisualSet = latestSourceIndex === null ? null : visualSets[latestSourceIndex] ?? null;
+  const activeThread = conversations.find((conversation) => conversation.id === activeSessionId)?.thread;
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
   const activeStudio = activeProject?.studios.find((studio) => studio.id === activeStudioId);
   const visibleFedMemories = getVisibleFedMemories(fedMemories, activeSessionId);
@@ -981,12 +1041,13 @@ export default function Home() {
           </div>
 
           <div className="conversation-card">
+            {activeThread && <div className="thread-context-banner"><MessageSquarePlus size={15} /><div><span>REPLY THREAD</span><strong>Continuing a focused response</strong><small>{activeThread.anchorContent.replace(/\s+/g, " ").slice(0, 104)}{activeThread.anchorContent.length > 104 ? "…" : ""}</small></div><button type="button" onClick={returnToParentConversation}><ArrowLeft size={13} /> Original chat</button></div>}
             <div className="bubble-stack" aria-live="polite">
               {messages.map((message, index) => (
                 <div key={`${message.role}-${index}-${message.content.slice(0, 12)}`} className={cn("message-row", message.role === "user" ? "user-row" : "assistant-row")}>
                   {message.role === "assistant" && <div className="mini-avatar"><span className="mini-avatar-dot" aria-hidden="true" /></div>}
                   <div className={cn("speech-bubble", message.role === "user" ? "user-bubble" : "assistant-bubble")}>
-                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
+                    {message.role === "assistant" ? <><Streamdown>{message.content}</Streamdown><div className="assistant-message-actions"><button type="button" className="replay-button" onClick={() => speakText(message.content)} aria-label="Replay gvone response"><Volume2 size={12} /> replay</button><button type="button" className="thread-reply-button" onClick={() => startReplyThread(index)} aria-label="Continue this gvone response in a separate thread"><MessageSquarePlus size={12} /> thread</button>{responseSources[index] && index !== latestSourceIndex && <button type="button" className="web-results-trigger" onClick={() => { setActiveSourceIndex(index); setSourceDrawerOpen(true); }}><Globe2 size={12} /> Web results <span>{responseSources[index].results.length || "!"}</span></button>}</div></> : <>{message.image && <img className="message-image" src={message.image.url} alt={`Attached image: ${message.image.name}`} />}<p>{message.content}</p></>}
                   </div>
                 </div>
               ))}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
 
 describe("chat history helpers", () => {
   it("uses the first user message as a readable conversation title", () => {
@@ -18,6 +18,14 @@ describe("chat history helpers", () => {
     const replacement = { id: "1", title: "updated", messages: [], updatedAt: 9 };
     expect(upsertConversation(old, replacement, 3).map((item) => item.id)).toEqual(["1", "0", "2"]);
     expect(upsertConversation(old, { id: "new", title: "new", messages: [], updatedAt: 9 }, 3).map((item) => item.id)).toEqual(["new", "0", "1"]);
+  });
+
+  it("builds a reply thread with only the parent context through the selected response", () => {
+    const messages = [{ role: "user" as const, content: "Help with a launch." }, { role: "assistant" as const, content: "Start with the audience." }, { role: "user" as const, content: "What about visuals?" }, { role: "assistant" as const, content: "Use a quiet editorial direction." }, { role: "user" as const, content: "This must stay in the original chat." }];
+    const threadMessages = buildReplyThreadMessages(messages, 3);
+    expect(threadMessages).toEqual(messages.slice(0, 4));
+    expect(threadMessages).not.toContain(messages[3]);
+    expect(threadMessages.map((message) => message.content)).not.toContain("This must stay in the original chat.");
   });
 
   it("retains per-response source sets when a conversation is stored", () => {

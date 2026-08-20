@@ -41,6 +41,13 @@ export type FedMemory = {
   updatedAt: number;
 };
 
+export type ChatHistoryThread = {
+  parentConversationId: string;
+  parentMessageIndex: number;
+  anchorContent: string;
+  createdAt: number;
+};
+
 export type ChatHistoryConversation = {
   id: string;
   title: string;
@@ -49,6 +56,7 @@ export type ChatHistoryConversation = {
   studioId?: string;
   sourceSets?: Record<number, ChatHistorySourceSet>;
   visualSets?: Record<number, ChatHistoryVisualSet>;
+  thread?: ChatHistoryThread;
   updatedAt: number;
 };
 
@@ -59,6 +67,10 @@ export function getConversationTitle(messages: ChatHistoryMessage[]): string {
 
 export function upsertConversation(conversations: ChatHistoryConversation[], next: ChatHistoryConversation, limit = 30): ChatHistoryConversation[] {
   return [next, ...conversations.filter((conversation) => conversation.id !== next.id)].slice(0, limit);
+}
+
+export function buildReplyThreadMessages(messages: ChatHistoryMessage[], replyIndex: number): ChatHistoryMessage[] {
+  return messages.slice(0, Math.max(0, replyIndex) + 1).map((message) => ({ ...message, image: message.image ? { ...message.image } : undefined }));
 }
 
 export function buildMemoryContext(conversations: ChatHistoryConversation[], activeId: string, limit = 4, maxChars = 5200): string {

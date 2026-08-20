@@ -321,3 +321,9 @@
 - [x] Use that response’s saved research query for dedicated visual discovery without posting a chat message.
 - [x] Remove the redundant Image discovery action beside Replay and retain concise visual loading feedback.
 - [x] Verify the simplified desktop/mobile Web results workflow, run tests, and save a checkpoint.
+
+- [x] Add a persistent threaded-conversation data model linked to its parent reply.
+- [x] Preserve the selected reply and earlier branch context when continuing a thread.
+- [x] Add a restrained Reply in thread action beneath every gvone response.
+- [x] Build a focused thread view with a clear return path to the original conversation.
+- [x] Add focused tests, verify desktop/mobile thread flows, and save a checkpoint.
