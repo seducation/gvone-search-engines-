@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { getVoiceAvailability, voiceErrorToAvailability, type VoiceAvailability } from "@/lib/voice";
 import { getGestureMode } from "@/lib/gesture";
 import { motionSupported, normalizeMotion } from "@/lib/motion";
-import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryThread, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationThreads, getConversationTitle, getThreadRootId, getVisibleFedMemories, upsertConversation, type ChatHistorySourceSet, type ChatHistoryThread, type ChatHistoryVisualSet, type FedMemory } from "@/lib/chatHistory";
 import { getTaskElapsedLabel, getTaskProgressActivity, getTaskProgressPercent, TASK_PROGRESS_STAGES } from "@/lib/taskProgress";
 import { buildVisualBoardReferences } from "@/lib/visualBoard";
 
@@ -165,11 +165,13 @@ export default function Home() {
   const isFeedMemoryPreview = progressPreview === "feed-memory" || progressPreview === "feed-memory-chat";
   const feedMemoryPreviewScope: FedMemory["scope"] = progressPreview === "feed-memory-chat" ? "chat" : "global";
   const isStudioPreview = progressPreview === "studios";
+  const isThreadPreview = progressPreview === "threads";
   const isProjectEntryPreview = progressPreview === "project-view" || isStudioPreview || isVisualBoardPreview;
   const isProjectsPreview = progressPreview === "projects" || isProjectEntryPreview;
   const isWorkspacePreview = isProjectsPreview || progressPreview === "history" || progressPreview === "history-project";
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const preview = new URLSearchParams(window.location.search).get("preview");
+    if (preview === "threads") return [{ role: "assistant", content: "A quiet editorial direction will keep the launch focused and memorable." }, { role: "user", content: "How should we make the visual direction feel more human?" }, { role: "assistant", content: "Let natural texture, generous spacing, and imperfect details do the work." }];
     if (!preview) {
       try {
         const activeId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
@@ -222,8 +224,9 @@ export default function Home() {
   const [visualBoardOpen, setVisualBoardOpen] = useState(isVisualBoardPreview);
   const [attachedImage, setAttachedImage] = useState<{ key: string; url: string; name: string } | null>(null);
   const [visualDiscoveryMode, setVisualDiscoveryMode] = useState(false);
-  const [conversations, setConversations] = useState<SavedConversation[]>(() => isWorkspacePreview ? [{ id: "preview-personal", title: "Literature review outline", messages: [{ role: "user", content: "Help structure the literature review." }, { role: "assistant", content: "Start with the research question and themes." }], updatedAt: 0 }, { id: "preview-project-chat", title: "Source evaluation", projectId: "preview-project", studioId: "preview-studio", messages: [{ role: "user", content: "Which sources should lead the project?" }, { role: "assistant", content: "Prioritize original evidence and clear attribution." }], updatedAt: 1 }] : readSavedConversations());
+  const [conversations, setConversations] = useState<SavedConversation[]>(() => isThreadPreview ? [{ id: "thread-preview-root", title: "Launch visual direction", messages: [{ role: "user", content: "Help shape the launch visual direction." }, { role: "assistant", content: "A quiet editorial direction will keep the launch focused and memorable." }, { role: "user", content: "Should we use bold color?" }, { role: "assistant", content: "Use color sparingly so the materials and photography can breathe." }], updatedAt: 1 }, { id: "thread-preview-a", title: "Thread · editorial direction", messages: [{ role: "assistant", content: "A quiet editorial direction will keep the launch focused and memorable." }, { role: "user", content: "How should we make the visual direction feel more human?" }, { role: "assistant", content: "Let natural texture, generous spacing, and imperfect details do the work." }], thread: { parentConversationId: "thread-preview-root", rootConversationId: "thread-preview-root", parentMessageIndex: 1, anchorContent: "A quiet editorial direction will keep the launch focused and memorable.", contextMessages: [{ role: "user", content: "Help shape the launch visual direction." }, { role: "assistant", content: "A quiet editorial direction will keep the launch focused and memorable." }], createdAt: 2 }, updatedAt: 2 }, { id: "thread-preview-b", title: "Thread · color system", messages: [{ role: "assistant", content: "Use color sparingly so the materials and photography can breathe." }, { role: "user", content: "Can the palette still feel expressive?" }, { role: "assistant", content: "Yes—use one warm accent against a calm mineral base." }], thread: { parentConversationId: "thread-preview-root", rootConversationId: "thread-preview-root", parentMessageIndex: 3, anchorContent: "Use color sparingly so the materials and photography can breathe.", contextMessages: [{ role: "user", content: "Help shape the launch visual direction." }, { role: "assistant", content: "A quiet editorial direction will keep the launch focused and memorable." }, { role: "user", content: "Should we use bold color?" }, { role: "assistant", content: "Use color sparingly so the materials and photography can breathe." }], createdAt: 3 }, updatedAt: 3 }] : isWorkspacePreview ? [{ id: "preview-personal", title: "Literature review outline", messages: [{ role: "user", content: "Help structure the literature review." }, { role: "assistant", content: "Start with the research question and themes." }], updatedAt: 0 }, { id: "preview-project-chat", title: "Source evaluation", projectId: "preview-project", studioId: "preview-studio", messages: [{ role: "user", content: "Which sources should lead the project?" }, { role: "assistant", content: "Prioritize original evidence and clear attribution." }], updatedAt: 1 }] : readSavedConversations());
   const [activeSessionId, setActiveSessionId] = useState(() => {
+    if (isThreadPreview) return "thread-preview-a";
     if (progressPreview === "feed-memory-chat") return "preview-chat";
     try { return window.localStorage.getItem(ACTIVE_SESSION_KEY) ?? safeId(); } catch { return safeId(); }
   });
@@ -285,6 +288,7 @@ export default function Home() {
   const [taskElapsedSeconds, setTaskElapsedSeconds] = useState(isProgressPreview ? 4 : 0);
   const [taskCapabilities, setTaskCapabilities] = useState({ usesProject: progressPreview === "progress-rich", usesVisualDiscovery: progressPreview === "progress-rich", usesWebResearch: true });
   const [discoveringReplyIndex, setDiscoveringReplyIndex] = useState<number | null>(null);
+  const [threadPanelOpen, setThreadPanelOpen] = useState(isThreadPreview);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -477,7 +481,8 @@ export default function Home() {
     const anchor = messages[replyIndex];
     if (!anchor || anchor.role !== "assistant") return;
     const threadId = safeId();
-    const threadMessages = buildReplyThreadMessages(messages, replyIndex);
+    const threadContextMessages = buildReplyThreadMessages(messages, replyIndex);
+    const threadMessages: ChatMessage[] = [{ role: "assistant", content: anchor.content, image: anchor.image ? { ...anchor.image } : undefined }];
     const thread: SavedConversation = {
       id: threadId,
       title: `Thread · ${anchor.content.replace(/\s+/g, " ").trim().slice(0, 32)}${anchor.content.trim().length > 32 ? "…" : ""}`,
@@ -486,7 +491,7 @@ export default function Home() {
       studioId: activeStudioId ?? undefined,
       sourceSets: sliceReplySets(responseSources, replyIndex),
       visualSets: sliceReplySets(visualSets, replyIndex),
-      thread: { parentConversationId: activeSessionId, parentMessageIndex: replyIndex, anchorContent: anchor.content, createdAt: Date.now() },
+      thread: { parentConversationId: activeSessionId, rootConversationId: getThreadRootId(conversations, activeSessionId), parentMessageIndex: replyIndex, anchorContent: anchor.content, contextMessages: threadContextMessages, createdAt: Date.now() },
       updatedAt: Date.now(),
     };
     setConversations((current) => {
@@ -514,13 +519,14 @@ export default function Home() {
     setInput("");
     setFailedMessages(null);
     setHistoryOpen(false);
+    setThreadPanelOpen(true);
     window.setTimeout(() => inputRef.current?.focus(), 0);
     toast.success("Thread started from this response.");
   };
 
   const returnToParentConversation = () => {
     const thread = conversations.find((conversation) => conversation.id === activeSessionId)?.thread;
-    const parent = thread ? conversations.find((conversation) => conversation.id === thread.parentConversationId) : undefined;
+    const parent = thread ? conversations.find((conversation) => conversation.id === getThreadRootId(conversations, activeSessionId)) : undefined;
     if (!parent) { toast.error("The original conversation is no longer available."); return; }
     openConversation(parent);
   };
@@ -750,7 +756,10 @@ export default function Home() {
     setFailedMessages(null);
     setInput("");
     const discoverVisuals = visualDiscoveryMode || Boolean(attachedImage);
-    const conversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
+    const currentThread = conversations.find((conversation) => conversation.id === activeSessionId)?.thread;
+    const parentThreadContext = currentThread?.contextMessages?.map((message) => `${message.role === "user" ? "Visitor" : "gvone"}: ${message.content.trim()}`).join("\n") ?? "";
+    const savedConversationMemory = memoryEnabled ? buildMemoryContext(conversations, activeSessionId) : "";
+    const conversationMemory = [parentThreadContext ? `Parent conversation through the selected reply:\n${parentThreadContext}` : "", savedConversationMemory].filter(Boolean).join("\n\n").slice(0, 5200);
     const fedMemory = buildFedMemoryContext(fedMemories, activeSessionId);
     const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
     const activeStudio = activeProject?.studios.find((studio) => studio.id === activeStudioId);
@@ -860,6 +869,9 @@ export default function Home() {
   const latestSourceSet = latestSourceIndex === null ? null : responseSources[latestSourceIndex] ?? null;
   const latestVisualSet = latestSourceIndex === null ? null : visualSets[latestSourceIndex] ?? null;
   const activeThread = conversations.find((conversation) => conversation.id === activeSessionId)?.thread;
+  const activeThreadRootId = getThreadRootId(conversations, activeSessionId);
+  const threadRootConversation = conversations.find((conversation) => conversation.id === activeThreadRootId);
+  const conversationThreads = threadRootConversation ? getConversationThreads(conversations, threadRootConversation.id) : [];
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
   const activeStudio = activeProject?.studios.find((studio) => studio.id === activeStudioId);
   const visibleFedMemories = getVisibleFedMemories(fedMemories, activeSessionId);
@@ -1041,6 +1053,7 @@ export default function Home() {
           </div>
 
           <div className="conversation-card">
+            {threadRootConversation && conversationThreads.length > 0 && <section className={cn("thread-hub", threadPanelOpen && "is-open")} aria-label="Conversation threads"><button type="button" className="thread-hub-toggle" onClick={() => setThreadPanelOpen((value) => !value)} aria-expanded={threadPanelOpen}><MessageSquarePlus size={14} /><span><strong>{conversationThreads.length} {conversationThreads.length === 1 ? "thread" : "threads"} in this chat</strong><small>{activeThread ? "You are viewing a separate branch" : "Open a focused branch from any gvone reply"}</small></span><ChevronDown size={14} /></button>{threadPanelOpen && <div className="thread-hub-list"><button type="button" className={cn("thread-hub-item", !activeThread && "is-active")} onClick={() => openConversation(threadRootConversation)}><span className="thread-hub-node"><MessageSquarePlus size={12} /></span><span><small>ORIGINAL CHAT</small><strong>{threadRootConversation.title}</strong><em>{threadRootConversation.messages.length} messages</em></span></button>{conversationThreads.map((thread, index) => <button type="button" className={cn("thread-hub-item", thread.id === activeSessionId && "is-active")} onClick={() => openConversation(thread)} key={thread.id}><span className="thread-hub-node"><i /></span><span><small>THREAD {index + 1}{thread.thread?.parentConversationId !== threadRootConversation.id ? " · nested" : ""}</small><strong>{thread.thread?.anchorContent.replace(/\s+/g, " ").slice(0, 76)}{(thread.thread?.anchorContent.length ?? 0) > 76 ? "…" : ""}</strong><em>{Math.max(0, thread.messages.length - 1)} replies in this branch</em></span></button>)}</div>}</section>}
             {activeThread && <div className="thread-context-banner"><MessageSquarePlus size={15} /><div><span>REPLY THREAD</span><strong>Continuing a focused response</strong><small>{activeThread.anchorContent.replace(/\s+/g, " ").slice(0, 104)}{activeThread.anchorContent.length > 104 ? "…" : ""}</small></div><button type="button" onClick={returnToParentConversation}><ArrowLeft size={13} /> Original chat</button></div>}
             <div className="bubble-stack" aria-live="polite">
               {messages.map((message, index) => (

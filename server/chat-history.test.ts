@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationTitle, getVisibleFedMemories, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
+import { buildFedMemoryContext, buildMemoryContext, buildProjectContext, buildReplyThreadMessages, getConversationThreads, getConversationTitle, getThreadRootId, getVisibleFedMemories, upsertConversation, type ChatHistoryConversation } from "../client/src/lib/chatHistory";
 
 describe("chat history helpers", () => {
   it("uses the first user message as a readable conversation title", () => {
@@ -26,6 +26,16 @@ describe("chat history helpers", () => {
     expect(threadMessages).toEqual(messages.slice(0, 4));
     expect(threadMessages).not.toContain(messages[3]);
     expect(threadMessages.map((message) => message.content)).not.toContain("This must stay in the original chat.");
+  });
+
+  it("groups reply branches and nested branches under the original conversation", () => {
+    const conversations: ChatHistoryConversation[] = [
+      { id: "root", title: "Original", messages: [], updatedAt: 1 },
+      { id: "branch-a", title: "First branch", messages: [], thread: { parentConversationId: "root", rootConversationId: "root", parentMessageIndex: 2, anchorContent: "First anchor", createdAt: 2 }, updatedAt: 2 },
+      { id: "branch-b", title: "Nested branch", messages: [], thread: { parentConversationId: "branch-a", rootConversationId: "root", parentMessageIndex: 3, anchorContent: "Nested anchor", createdAt: 3 }, updatedAt: 3 },
+    ];
+    expect(getThreadRootId(conversations, "branch-b")).toBe("root");
+    expect(getConversationThreads(conversations, "root").map((conversation) => conversation.id)).toEqual(["branch-a", "branch-b"]);
   });
 
   it("retains per-response source sets when a conversation is stored", () => {

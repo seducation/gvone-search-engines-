@@ -327,3 +327,9 @@
 - [x] Add a restrained Reply in thread action beneath every gvone response.
 - [x] Build a focused thread view with a clear return path to the original conversation.
 - [x] Add focused tests, verify desktop/mobile thread flows, and save a checkpoint.
+
+- [x] Group reply branches visibly under their parent conversation and retain the parent response anchor.
+- [x] Show how many threads belong to the open conversation.
+- [x] Add an accessible thread panel with direct navigation and an obvious active-thread state.
+- [x] Keep parent and thread message histories clearly separate so unrelated replies do not appear mixed.
+- [x] Add focused tests, verify desktop/mobile thread navigation, and save a checkpoint.

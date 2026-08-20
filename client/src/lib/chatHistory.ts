@@ -43,8 +43,10 @@ export type FedMemory = {
 
 export type ChatHistoryThread = {
   parentConversationId: string;
+  rootConversationId: string;
   parentMessageIndex: number;
   anchorContent: string;
+  contextMessages?: ChatHistoryMessage[];
   createdAt: number;
 };
 
@@ -71,6 +73,25 @@ export function upsertConversation(conversations: ChatHistoryConversation[], nex
 
 export function buildReplyThreadMessages(messages: ChatHistoryMessage[], replyIndex: number): ChatHistoryMessage[] {
   return messages.slice(0, Math.max(0, replyIndex) + 1).map((message) => ({ ...message, image: message.image ? { ...message.image } : undefined }));
+}
+
+export function getThreadRootId(conversations: ChatHistoryConversation[], conversationId: string): string {
+  let current = conversations.find((conversation) => conversation.id === conversationId);
+  const visited = new Set<string>();
+  while (current?.thread?.parentConversationId && !visited.has(current.id)) {
+    visited.add(current.id);
+    if (current.thread.rootConversationId) return current.thread.rootConversationId;
+    const parent = conversations.find((conversation) => conversation.id === current?.thread?.parentConversationId);
+    if (!parent) return current.thread.parentConversationId;
+    current = parent;
+  }
+  return current?.id ?? conversationId;
+}
+
+export function getConversationThreads(conversations: ChatHistoryConversation[], rootConversationId: string): ChatHistoryConversation[] {
+  return conversations
+    .filter((conversation) => conversation.thread && getThreadRootId(conversations, conversation.id) === rootConversationId)
+    .sort((a, b) => (a.thread?.createdAt ?? 0) - (b.thread?.createdAt ?? 0));
 }
 
 export function buildMemoryContext(conversations: ChatHistoryConversation[], activeId: string, limit = 4, maxChars = 5200): string {
